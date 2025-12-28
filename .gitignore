@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Backend specific
+backend/data/
+*.db
+*.db-wal
+*.db-shm
