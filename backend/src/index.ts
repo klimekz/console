@@ -44,5 +44,5 @@ export default {
   port,
   fetch: app.fetch,
   // Deep research can take several minutes, increase timeout from 10s default
-  idleTimeout: 600, // 10 minutes
+  idleTimeout: 255, // Max allowed by Bun (4.25 minutes)
 };
