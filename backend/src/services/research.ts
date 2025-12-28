@@ -6,21 +6,40 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Deep research model - uses web_search_preview tool
+const DEEP_RESEARCH_MODEL = 'o4-mini-deep-research-2025-06-26';
+
+// Pricing (as of Dec 2025): $0.01 per web search call
+const WEB_SEARCH_COST_CENTS = 1;
+// Token pricing for o4-mini-deep-research (estimated, per 1M tokens)
+const INPUT_TOKEN_COST_PER_MILLION = 110; // $1.10 per 1M input tokens
+const OUTPUT_TOKEN_COST_PER_MILLION = 440; // $4.40 per 1M output tokens
+
 function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-function getSystemPrompt(): string {
+function buildResearchPrompt(config: ResearchConfig): string {
   const today = getTodayDate();
-  return `You are a research analyst finding the LATEST content published TODAY or in the last 24-48 hours.
+  const topicsStr = config.topics.join(', ');
 
-TODAY'S DATE: ${today}
+  return `TODAY'S DATE: ${today}
 
-CRITICAL: Only include content published on or after ${today} or within the last 48 hours. Do NOT include old content from weeks or months ago.
+You are a research analyst. Find the TOP ${config.category === 'papers' ? 'research papers and technical articles' : config.category === 'news' ? 'tech news stories and announcements' : 'market news and financial updates'} published in the last 48 hours.
 
-You MUST respond with valid JSON in this exact format:
+${config.prompt}
+
+Topics to focus on: ${topicsStr}
+
+IMPORTANT REQUIREMENTS:
+- Only include content published within the last 48 hours (since ${today})
+- Return up to 15 items maximum
+- Provide real, verifiable URLs
+- Sort by relevance (most relevant first)
+
+Return your findings as JSON in this exact format:
 {
-  "summary": "A brief 2-3 sentence overview of today's key findings",
+  "summary": "A brief 2-3 sentence overview of the key findings",
   "items": [
     {
       "title": "Article/Paper Title",
@@ -28,57 +47,121 @@ You MUST respond with valid JSON in this exact format:
       "url": "Full URL to the content",
       "summary": "2-3 sentence summary of this item",
       "relevanceScore": 8.5,
-      "publishedAt": "${today}",
+      "publishedAt": "YYYY-MM-DD",
       "tags": ["tag1", "tag2"]
     }
   ]
 }
 
 Rules:
-- ONLY include content from the last 48 hours (published on or after ${today} minus 2 days)
-- Return up to 15 items maximum
-- Sort by relevance score (highest first)
 - relevanceScore must be between 1-10
-- publishedAt MUST be a real date in YYYY-MM-DD format, recent dates only
-- Ensure URLs are real and accessible
-- Tags should be lowercase`;
+- publishedAt must be in YYYY-MM-DD format
+- tags should be lowercase
+- Only return valid JSON`;
 }
 
-export async function runDeepResearch(config: ResearchConfig): Promise<DeepResearchResponse> {
-  const today = getTodayDate();
-  const topicsStr = config.topics.join(', ');
+function calculateCost(inputTokens: number, outputTokens: number, webSearchCalls: number): number {
+  const inputCost = (inputTokens / 1_000_000) * INPUT_TOKEN_COST_PER_MILLION * 100; // in cents
+  const outputCost = (outputTokens / 1_000_000) * OUTPUT_TOKEN_COST_PER_MILLION * 100; // in cents
+  const searchCost = webSearchCalls * WEB_SEARCH_COST_CENTS;
+  return inputCost + outputCost + searchCost;
+}
 
-  const userPrompt = `Find the TOP ${config.category === 'papers' ? 'research papers and technical articles' : config.category === 'news' ? 'tech news stories and announcements' : 'market news and financial updates'} published TODAY (${today}) or in the last 48 hours.
-
-${config.prompt}
-
-Topics: ${topicsStr}
-
-IMPORTANT: Today is ${today}. Only return content published on ${today} or within the last 2 days. No old content.
-
-Return as JSON.`;
+export async function runDeepResearch(config: ResearchConfig, auditId: string): Promise<DeepResearchResponse> {
+  const prompt = buildResearchPrompt(config);
+  const startTime = Date.now();
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: getSystemPrompt() },
-        { role: 'user', content: userPrompt },
+    // Use the responses API with deep research model and web search tool
+    const response = await openai.responses.create({
+      model: DEEP_RESEARCH_MODEL,
+      input: [
+        {
+          role: 'user',
+          content: [{ type: 'input_text', text: prompt }],
+        },
       ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-    });
+      tools: [{ type: 'web_search_preview' }],
+    } as any); // Type assertion needed as SDK types may not be fully updated
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      return { summary: 'No response from AI', items: [] };
+    const runtimeMs = Date.now() - startTime;
+
+    // Extract usage info
+    const usage = (response as any).usage || {};
+    const inputTokens = usage.input_tokens || 0;
+    const outputTokens = usage.output_tokens || 0;
+
+    // Count web search calls from the response
+    let webSearchCalls = 0;
+    const outputItems = (response as any).output || [];
+    for (const item of outputItems) {
+      if (item.type === 'web_search_call') {
+        webSearchCalls++;
+      }
     }
 
-    const parsed = JSON.parse(content) as DeepResearchResponse;
+    // Calculate cost
+    const estimatedCostCents = calculateCost(inputTokens, outputTokens, webSearchCalls);
+
+    // Update audit entry with success metrics
+    db.updateAuditEntry(auditId, {
+      inputTokens,
+      outputTokens,
+      webSearchCalls,
+      estimatedCostCents,
+      runtimeMs,
+      status: 'completed',
+    });
+
+    // Extract the text output
+    let outputText = '';
+    for (const item of outputItems) {
+      if (item.type === 'message' && item.content) {
+        for (const content of item.content) {
+          if (content.type === 'output_text') {
+            outputText = content.text;
+            break;
+          }
+        }
+      }
+    }
+
+    // Fallback: try direct output_text property
+    if (!outputText && (response as any).output_text) {
+      outputText = (response as any).output_text;
+    }
+
+    if (!outputText) {
+      console.error('No output text found in response:', JSON.stringify(response, null, 2));
+      return { summary: 'No response from deep research', items: [] };
+    }
+
+    // Parse JSON from the response
+    // Try to extract JSON from markdown code blocks if present
+    let jsonStr = outputText;
+    const jsonMatch = outputText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1].trim();
+    }
+
+    const parsed = JSON.parse(jsonStr) as DeepResearchResponse;
+
+    console.log(`Deep research completed in ${(runtimeMs / 1000).toFixed(1)}s - ${webSearchCalls} web searches, ${inputTokens}/${outputTokens} tokens, $${(estimatedCostCents / 100).toFixed(4)}`);
+
     return parsed;
   } catch (error) {
+    const runtimeMs = Date.now() - startTime;
+    const errorMessage = (error as Error).message;
+
+    // Update audit entry with failure
+    db.updateAuditEntry(auditId, {
+      runtimeMs,
+      status: 'failed',
+      errorMessage,
+    });
+
     console.error('Deep research error:', error);
-    return { summary: 'Research failed: ' + (error as Error).message, items: [] };
+    return { summary: 'Research failed: ' + errorMessage, items: [] };
   }
 }
 
@@ -89,9 +172,16 @@ export async function executeResearchConfig(configId: string): Promise<db.Resear
     return null;
   }
 
-  console.log(`Running research for config: ${config.name}`);
+  console.log(`Running deep research for config: ${config.name}`);
 
-  const research = await runDeepResearch(config);
+  // Create audit entry
+  const auditId = db.createAuditEntry({
+    eventType: 'research_run',
+    configId: config.id,
+    model: DEEP_RESEARCH_MODEL,
+  });
+
+  const research = await runDeepResearch(config, auditId);
 
   const reportItems: Omit<ResearchItem, 'id' | 'reportId'>[] = research.items.map(item => ({
     title: item.title,
@@ -113,6 +203,9 @@ export async function executeResearchConfig(configId: string): Promise<db.Resear
     },
     reportItems
   );
+
+  // Update audit with report ID
+  db.updateAuditEntry(auditId, { reportId: report.id });
 
   console.log(`Created report ${report.id} with ${report.items.length} items`);
   return report;

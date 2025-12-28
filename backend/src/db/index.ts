@@ -277,3 +277,112 @@ export function deleteAllReports(): number {
   const result = db.run('DELETE FROM research_reports');
   return result.changes;
 }
+
+// Audit Log
+export interface AuditEntry {
+  id: string;
+  eventType: string;
+  configId?: string;
+  reportId?: string;
+  model?: string;
+  inputTokens: number;
+  outputTokens: number;
+  webSearchCalls: number;
+  estimatedCostCents: number;
+  runtimeMs: number;
+  status: 'started' | 'completed' | 'failed';
+  errorMessage?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export function createAuditEntry(entry: {
+  eventType: string;
+  configId?: string;
+  model?: string;
+}): string {
+  const db = getDb();
+  const id = randomUUID();
+
+  db.run(`
+    INSERT INTO audit_log (id, event_type, config_id, model, status)
+    VALUES (?, ?, ?, ?, 'started')
+  `, [id, entry.eventType, entry.configId || null, entry.model || null]);
+
+  return id;
+}
+
+export function updateAuditEntry(id: string, updates: {
+  reportId?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  webSearchCalls?: number;
+  estimatedCostCents?: number;
+  runtimeMs?: number;
+  status?: 'started' | 'completed' | 'failed';
+  errorMessage?: string;
+}): void {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  const setClauses: string[] = [];
+  const params: any[] = [];
+
+  if (updates.reportId !== undefined) {
+    setClauses.push('report_id = ?');
+    params.push(updates.reportId);
+  }
+  if (updates.inputTokens !== undefined) {
+    setClauses.push('input_tokens = ?');
+    params.push(updates.inputTokens);
+  }
+  if (updates.outputTokens !== undefined) {
+    setClauses.push('output_tokens = ?');
+    params.push(updates.outputTokens);
+  }
+  if (updates.webSearchCalls !== undefined) {
+    setClauses.push('web_search_calls = ?');
+    params.push(updates.webSearchCalls);
+  }
+  if (updates.estimatedCostCents !== undefined) {
+    setClauses.push('estimated_cost_cents = ?');
+    params.push(updates.estimatedCostCents);
+  }
+  if (updates.runtimeMs !== undefined) {
+    setClauses.push('runtime_ms = ?');
+    params.push(updates.runtimeMs);
+  }
+  if (updates.status !== undefined) {
+    setClauses.push('status = ?');
+    params.push(updates.status);
+    if (updates.status === 'completed' || updates.status === 'failed') {
+      setClauses.push('completed_at = ?');
+      params.push(now);
+    }
+  }
+  if (updates.errorMessage !== undefined) {
+    setClauses.push('error_message = ?');
+    params.push(updates.errorMessage);
+  }
+
+  if (setClauses.length === 0) return;
+
+  params.push(id);
+  db.run(`UPDATE audit_log SET ${setClauses.join(', ')} WHERE id = ?`, params);
+}
+
+export function getRecentAuditEntries(limit: number = 50): AuditEntry[] {
+  const db = getDb();
+  const rows = db.query(`
+    SELECT id, event_type as eventType, config_id as configId, report_id as reportId,
+           model, input_tokens as inputTokens, output_tokens as outputTokens,
+           web_search_calls as webSearchCalls, estimated_cost_cents as estimatedCostCents,
+           runtime_ms as runtimeMs, status, error_message as errorMessage,
+           created_at as createdAt, completed_at as completedAt
+    FROM audit_log
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(limit) as AuditEntry[];
+
+  return rows;
+}

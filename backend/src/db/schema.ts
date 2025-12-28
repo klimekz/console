@@ -58,6 +58,30 @@ export function createSchema(db: Database): void {
     CREATE INDEX IF NOT EXISTS idx_items_report_id
     ON research_items(report_id)
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      config_id TEXT,
+      report_id TEXT,
+      model TEXT,
+      input_tokens INTEGER DEFAULT 0,
+      output_tokens INTEGER DEFAULT 0,
+      web_search_calls INTEGER DEFAULT 0,
+      estimated_cost_cents REAL DEFAULT 0,
+      runtime_ms INTEGER DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'started',
+      error_message TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT
+    )
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_audit_created_at
+    ON audit_log(created_at DESC)
+  `);
 }
 
 export function seedDefaultConfigs(db: Database): void {
