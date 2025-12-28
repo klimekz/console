@@ -43,4 +43,6 @@ console.log(`Starting server on port ${port}...`);
 export default {
   port,
   fetch: app.fetch,
+  // Deep research can take several minutes, increase timeout from 10s default
+  idleTimeout: 600, // 10 minutes
 };
