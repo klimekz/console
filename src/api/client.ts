@@ -69,4 +69,9 @@ export const reportsApi = {
     fetchApi<{ success: boolean; count: number }>('/api/reports/run-all', {
       method: 'POST',
     }),
+
+  clearAll: () =>
+    fetchApi<{ success: boolean; deleted: number }>('/api/reports/clear', {
+      method: 'DELETE',
+    }),
 };

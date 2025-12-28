@@ -98,4 +98,10 @@ reports.post('/run-all', async (c) => {
   }
 });
 
+// Delete all reports (for debugging)
+reports.delete('/clear', (c) => {
+  const deleted = db.deleteAllReports();
+  return c.json({ success: true, deleted });
+});
+
 export default reports;

@@ -3,16 +3,18 @@ import { Link } from 'react-router-dom';
 import SettingsIcon from '@mui/icons-material/Settings';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
 
 interface ReportHeaderProps {
   onSettingsClick: () => void;
   onRefresh: () => void;
+  onClear: () => void;
   loading?: boolean;
 }
 
-export function ReportHeader({ onSettingsClick, onRefresh, loading }: ReportHeaderProps) {
+export function ReportHeader({ onSettingsClick, onRefresh, onClear, loading }: ReportHeaderProps) {
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -52,6 +54,14 @@ export function ReportHeader({ onSettingsClick, onRefresh, loading }: ReportHead
           {dateStr}
         </Typography>
         <Box>
+          <IconButton
+            onClick={onClear}
+            size="small"
+            sx={{ mr: 0.5, color: '#999', '&:hover': { color: '#c00' } }}
+            title="Clear all reports"
+          >
+            <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+          </IconButton>
           <IconButton
             onClick={onRefresh}
             disabled={loading}

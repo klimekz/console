@@ -48,6 +48,16 @@ export function ReportPage() {
     setRefreshing(false);
   };
 
+  const handleClear = async () => {
+    if (!confirm('Delete all reports?')) return;
+    try {
+      await reportsApi.clearAll();
+      await loadTodayReports();
+    } catch (err) {
+      console.error('Failed to clear reports:', err);
+    }
+  };
+
   const handleRunComplete = async () => {
     await loadTodayReports();
   };
@@ -81,6 +91,7 @@ export function ReportPage() {
           <ReportHeader
             onSettingsClick={() => setSettingsOpen(true)}
             onRefresh={handleRefresh}
+            onClear={handleClear}
             loading={refreshing}
           />
 

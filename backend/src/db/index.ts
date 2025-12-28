@@ -270,3 +270,10 @@ export function getYesterdaysAndOlderReports(page: number = 1, pageSize: number 
     totalPages: Math.ceil(count / pageSize),
   };
 }
+
+export function deleteAllReports(): number {
+  const db = getDb();
+  db.run('DELETE FROM research_items');
+  const result = db.run('DELETE FROM research_reports');
+  return result.changes;
+}

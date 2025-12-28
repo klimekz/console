@@ -6,10 +6,21 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const SYSTEM_PROMPT = `You are a research analyst that finds and summarizes the most relevant, recent content based on user queries.
+function getTodayDate(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function getSystemPrompt(): string {
+  const today = getTodayDate();
+  return `You are a research analyst finding the LATEST content published TODAY or in the last 24-48 hours.
+
+TODAY'S DATE: ${today}
+
+CRITICAL: Only include content published on or after ${today} or within the last 48 hours. Do NOT include old content from weeks or months ago.
+
 You MUST respond with valid JSON in this exact format:
 {
-  "summary": "A brief 2-3 sentence overview of the findings",
+  "summary": "A brief 2-3 sentence overview of today's key findings",
   "items": [
     {
       "title": "Article/Paper Title",
@@ -17,34 +28,41 @@ You MUST respond with valid JSON in this exact format:
       "url": "Full URL to the content",
       "summary": "2-3 sentence summary of this item",
       "relevanceScore": 8.5,
-      "publishedAt": "2024-01-15 or null if unknown",
+      "publishedAt": "${today}",
       "tags": ["tag1", "tag2"]
     }
   ]
 }
 
 Rules:
+- ONLY include content from the last 48 hours (published on or after ${today} minus 2 days)
 - Return up to 15 items maximum
 - Sort by relevance score (highest first)
 - relevanceScore must be between 1-10
-- Focus on recent content (last 24-72 hours preferred, up to 1 week)
-- Ensure URLs are valid and accessible
-- Tags should be lowercase, single words or short phrases`;
+- publishedAt MUST be a real date in YYYY-MM-DD format, recent dates only
+- Ensure URLs are real and accessible
+- Tags should be lowercase`;
+}
 
 export async function runDeepResearch(config: ResearchConfig): Promise<DeepResearchResponse> {
+  const today = getTodayDate();
   const topicsStr = config.topics.join(', ');
-  const userPrompt = `${config.prompt}
 
-Topics to focus on: ${topicsStr}
-Category: ${config.category}
+  const userPrompt = `Find the TOP ${config.category === 'papers' ? 'research papers and technical articles' : config.category === 'news' ? 'tech news stories and announcements' : 'market news and financial updates'} published TODAY (${today}) or in the last 48 hours.
 
-Find up to 15 of the most relevant, recent items. Return your response as valid JSON only, no markdown.`;
+${config.prompt}
+
+Topics: ${topicsStr}
+
+IMPORTANT: Today is ${today}. Only return content published on ${today} or within the last 2 days. No old content.
+
+Return as JSON.`;
 
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: getSystemPrompt() },
         { role: 'user', content: userPrompt },
       ],
       response_format: { type: 'json_object' },
