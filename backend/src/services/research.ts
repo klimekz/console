@@ -1,19 +1,25 @@
 import OpenAI from 'openai';
-import type { ResearchConfig, DeepResearchResponse, ResearchItem } from '../types';
+import type { ResearchConfig, DeepResearchResponse, ResearchItem, ResearchMode } from '../types';
 import * as db from '../db';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Deep research model - uses web_search_preview tool
+// Model options
 const DEEP_RESEARCH_MODEL = 'o4-mini-deep-research-2025-06-26';
+const LITE_MODEL = 'gpt-4o-mini';
 
-// Pricing (as of Dec 2025): $0.01 per web search call
-const WEB_SEARCH_COST_CENTS = 1;
-// Token pricing for o4-mini-deep-research (estimated, per 1M tokens)
-const INPUT_TOKEN_COST_PER_MILLION = 110; // $1.10 per 1M input tokens
-const OUTPUT_TOKEN_COST_PER_MILLION = 440; // $4.40 per 1M output tokens
+// Pricing (as of Dec 2025)
+const WEB_SEARCH_COST_CENTS = 1; // $0.01 per web search call
+
+// Token pricing for o4-mini-deep-research (per 1M tokens)
+const DEEP_INPUT_COST_PER_MILLION = 110; // $1.10
+const DEEP_OUTPUT_COST_PER_MILLION = 440; // $4.40
+
+// Token pricing for gpt-4o-mini (per 1M tokens)
+const LITE_INPUT_COST_PER_MILLION = 15; // $0.15
+const LITE_OUTPUT_COST_PER_MILLION = 60; // $0.60
 
 function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
@@ -60,13 +66,111 @@ Rules:
 - Only return valid JSON`;
 }
 
-function calculateCost(inputTokens: number, outputTokens: number, webSearchCalls: number): number {
-  const inputCost = (inputTokens / 1_000_000) * INPUT_TOKEN_COST_PER_MILLION * 100; // in cents
-  const outputCost = (outputTokens / 1_000_000) * OUTPUT_TOKEN_COST_PER_MILLION * 100; // in cents
+function calculateCost(inputTokens: number, outputTokens: number, webSearchCalls: number, mode: ResearchMode): number {
+  const inputRate = mode === 'deep' ? DEEP_INPUT_COST_PER_MILLION : LITE_INPUT_COST_PER_MILLION;
+  const outputRate = mode === 'deep' ? DEEP_OUTPUT_COST_PER_MILLION : LITE_OUTPUT_COST_PER_MILLION;
+
+  const inputCost = (inputTokens / 1_000_000) * inputRate * 100; // in cents
+  const outputCost = (outputTokens / 1_000_000) * outputRate * 100; // in cents
   const searchCost = webSearchCalls * WEB_SEARCH_COST_CENTS;
   return inputCost + outputCost + searchCost;
 }
 
+// Lite mode: uses gpt-4o-mini with web search - much faster and cheaper
+export async function runLiteResearch(config: ResearchConfig, auditId: string): Promise<DeepResearchResponse> {
+  const prompt = buildResearchPrompt(config);
+  const startTime = Date.now();
+
+  try {
+    // Use the responses API with gpt-4o-mini and web search tool
+    const response = await openai.responses.create({
+      model: LITE_MODEL,
+      input: [
+        {
+          role: 'user',
+          content: [{ type: 'input_text', text: prompt }],
+        },
+      ],
+      tools: [{ type: 'web_search_preview' }],
+    } as any);
+
+    const runtimeMs = Date.now() - startTime;
+
+    // Extract usage info
+    const usage = (response as any).usage || {};
+    const inputTokens = usage.input_tokens || 0;
+    const outputTokens = usage.output_tokens || 0;
+
+    // Count web search calls
+    let webSearchCalls = 0;
+    const outputItems = (response as any).output || [];
+    for (const item of outputItems) {
+      if (item.type === 'web_search_call') {
+        webSearchCalls++;
+      }
+    }
+
+    const estimatedCostCents = calculateCost(inputTokens, outputTokens, webSearchCalls, 'lite');
+
+    db.updateAuditEntry(auditId, {
+      inputTokens,
+      outputTokens,
+      webSearchCalls,
+      estimatedCostCents,
+      runtimeMs,
+      status: 'completed',
+    });
+
+    // Extract the text output
+    let outputText = '';
+    for (const item of outputItems) {
+      if (item.type === 'message' && item.content) {
+        for (const content of item.content) {
+          if (content.type === 'output_text') {
+            outputText = content.text;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!outputText && (response as any).output_text) {
+      outputText = (response as any).output_text;
+    }
+
+    if (!outputText) {
+      console.error('No output text found in response:', JSON.stringify(response, null, 2));
+      return { summary: 'No response from research', items: [] };
+    }
+
+    // Parse JSON from the response
+    let jsonStr = outputText;
+    const jsonMatch = outputText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1].trim();
+    }
+
+    const parsed = JSON.parse(jsonStr) as DeepResearchResponse;
+
+    console.log(`Lite research completed in ${(runtimeMs / 1000).toFixed(1)}s - ${webSearchCalls} web searches, ${inputTokens}/${outputTokens} tokens, $${(estimatedCostCents / 100).toFixed(4)}`);
+
+    return parsed;
+  } catch (error) {
+    const runtimeMs = Date.now() - startTime;
+    const errorMessage = (error as Error).message;
+
+    db.updateAuditEntry(auditId, {
+      runtimeMs,
+      status: 'failed',
+      errorMessage,
+    });
+
+    console.error('Lite research error:', error);
+    return { summary: 'Research failed: ' + errorMessage, items: [] };
+  }
+}
+
+// Deep mode: uses o4-mini-deep-research - more thorough but slow and token-heavy
 export async function runDeepResearch(config: ResearchConfig, auditId: string): Promise<DeepResearchResponse> {
   const prompt = buildResearchPrompt(config);
   const startTime = Date.now();
@@ -101,7 +205,7 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
     }
 
     // Calculate cost
-    const estimatedCostCents = calculateCost(inputTokens, outputTokens, webSearchCalls);
+    const estimatedCostCents = calculateCost(inputTokens, outputTokens, webSearchCalls, 'deep');
 
     // Update audit entry with success metrics
     db.updateAuditEntry(auditId, {
@@ -172,17 +276,23 @@ export async function executeResearchConfig(configId: string): Promise<db.Resear
     return null;
   }
 
-  console.log(`Running deep research for config: ${config.name}`);
+  const mode = config.researchMode || 'lite';
+  const model = mode === 'deep' ? DEEP_RESEARCH_MODEL : LITE_MODEL;
+
+  console.log(`Running ${mode} research for config: ${config.name} (${model})`);
 
   // Create audit entry
   const auditId = db.createAuditEntry({
     eventType: 'research_run',
     configId: config.id,
     configName: config.name,
-    model: DEEP_RESEARCH_MODEL,
+    model,
   });
 
-  const research = await runDeepResearch(config, auditId);
+  // Run the appropriate research mode
+  const research = mode === 'deep'
+    ? await runDeepResearch(config, auditId)
+    : await runLiteResearch(config, auditId);
 
   const reportItems: Omit<ResearchItem, 'id' | 'reportId'>[] = research.items.map(item => ({
     title: item.title,

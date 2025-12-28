@@ -11,6 +11,7 @@ export function createSchema(db: Database): void {
       topics TEXT NOT NULL, -- JSON array
       enabled INTEGER NOT NULL DEFAULT 1,
       schedule TEXT NOT NULL DEFAULT '0 6 * * *', -- daily at 6 AM
+      research_mode TEXT NOT NULL DEFAULT 'lite' CHECK(research_mode IN ('deep', 'lite')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
