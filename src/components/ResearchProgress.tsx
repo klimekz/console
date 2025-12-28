@@ -17,11 +17,17 @@ export function ResearchProgress({ runningEntries, recentFailed, onDismissError 
   useEffect(() => {
     if (runningEntries.length === 0) return;
 
+    const parseDbDate = (dateStr: string): number => {
+      // SQLite returns "YYYY-MM-DD HH:MM:SS", convert to ISO format
+      const isoStr = dateStr.replace(' ', 'T') + 'Z';
+      return new Date(isoStr).getTime();
+    };
+
     const interval = setInterval(() => {
       const now = Date.now();
       const newElapsed: Record<string, number> = {};
       for (const entry of runningEntries) {
-        const startTime = new Date(entry.createdAt).getTime();
+        const startTime = parseDbDate(entry.createdAt);
         newElapsed[entry.id] = Math.floor((now - startTime) / 1000);
       }
       setElapsed(newElapsed);
