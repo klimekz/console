@@ -38,72 +38,30 @@ export async function runDeepResearch(config: ResearchConfig): Promise<DeepResea
 Topics to focus on: ${topicsStr}
 Category: ${config.category}
 
-Find up to 15 of the most relevant, recent items. Return your response as valid JSON.`;
+Find up to 15 of the most relevant, recent items. Return your response as valid JSON only, no markdown.`;
 
   try {
-    // Use OpenAI's responses API with web search tool for deep research
-    const response = await openai.responses.create({
+    const response = await openai.chat.completions.create({
       model: 'gpt-4o',
-      tools: [{ type: 'web_search_preview' }],
-      input: [
+      messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
     });
 
-    // Extract the text response
-    let textContent = '';
-    for (const item of response.output) {
-      if (item.type === 'message') {
-        for (const content of item.content) {
-          if (content.type === 'output_text') {
-            textContent += content.text;
-          }
-        }
-      }
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      return { summary: 'No response from AI', items: [] };
     }
 
-    // Parse the JSON response
-    const jsonMatch = textContent.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('No JSON found in response:', textContent);
-      return { summary: 'Failed to parse research results', items: [] };
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]) as DeepResearchResponse;
+    const parsed = JSON.parse(content) as DeepResearchResponse;
     return parsed;
   } catch (error) {
     console.error('Deep research error:', error);
-
-    // Fallback to standard chat completion if responses API fails
-    return runFallbackResearch(config, topicsStr);
+    return { summary: 'Research failed: ' + (error as Error).message, items: [] };
   }
-}
-
-async function runFallbackResearch(config: ResearchConfig, topicsStr: string): Promise<DeepResearchResponse> {
-  const userPrompt = `${config.prompt}
-
-Topics to focus on: ${topicsStr}
-Category: ${config.category}
-
-Based on your training data, provide up to 15 relevant items that would typically be trending or important in these areas. Return your response as valid JSON.`;
-
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: userPrompt },
-    ],
-    response_format: { type: 'json_object' },
-    temperature: 0.7,
-  });
-
-  const content = response.choices[0]?.message?.content;
-  if (!content) {
-    return { summary: 'No response from AI', items: [] };
-  }
-
-  return JSON.parse(content) as DeepResearchResponse;
 }
 
 export async function executeResearchConfig(configId: string): Promise<db.ResearchReport | null> {
