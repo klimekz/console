@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { LandingPage } from './pages/LandingPage';
 import { ReportPage } from './pages/ReportPage';
+import { PortfolioPage } from './pages/PortfolioPage';
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
 
@@ -42,6 +43,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/report" element={<ReportPage />} />
+          <Route path="/portfolio" element={<PortfolioPage />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
