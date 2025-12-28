@@ -3,6 +3,8 @@ import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { LandingPage } from './pages/LandingPage';
 import { ReportPage } from './pages/ReportPage';
 
+const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
+
 const theme = createTheme({
   palette: {
     mode: 'light',
@@ -10,40 +12,22 @@ const theme = createTheme({
       main: '#121212',
     },
     background: {
-      default: '#fafafa',
-      paper: '#ffffff',
+      default: '#fff',
+      paper: '#fff',
     },
     text: {
       primary: '#121212',
-      secondary: '#5a5a5a',
+      secondary: '#666',
     },
   },
   typography: {
-    fontFamily: '"Georgia", "Times New Roman", serif',
-    h1: {
-      fontFamily: '"Cheltenham", "Georgia", serif',
-    },
-    h2: {
-      fontFamily: '"Cheltenham", "Georgia", serif',
-    },
-    h3: {
-      fontFamily: '"Cheltenham", "Georgia", serif',
-    },
-    h4: {
-      fontFamily: '"Cheltenham", "Georgia", serif',
-    },
-    h5: {
-      fontFamily: '"Cheltenham", "Georgia", serif',
-    },
-    h6: {
-      fontFamily: '"Cheltenham", "Georgia", serif',
-    },
+    fontFamily: SYSTEM_FONT,
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundColor: '#fafafa',
+          backgroundColor: '#fff',
         },
       },
     },

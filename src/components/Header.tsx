@@ -4,6 +4,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
+const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
+
 interface ReportHeaderProps {
   onSettingsClick: () => void;
   onRefresh: () => void;
@@ -21,15 +23,15 @@ export function ReportHeader({ onSettingsClick, onRefresh, loading }: ReportHead
 
   return (
     <Box sx={{ mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, '&:hover': { opacity: 0.7 } }}>
-            <ArrowBackIcon sx={{ fontSize: 18 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, '&:hover': { opacity: 0.6 } }}>
+            <ArrowBackIcon sx={{ fontSize: 16 }} />
             <Typography
-              variant="caption"
               sx={{
-                fontFamily: '"Inter", -apple-system, sans-serif',
+                fontFamily: SYSTEM_FONT,
                 fontWeight: 500,
+                fontSize: '0.75rem',
                 letterSpacing: 0.5,
                 textTransform: 'uppercase',
               }}
@@ -39,11 +41,11 @@ export function ReportHeader({ onSettingsClick, onRefresh, loading }: ReportHead
           </Box>
         </Link>
         <Typography
-          variant="caption"
           sx={{
-            color: 'text.secondary',
-            fontFamily: '"Inter", -apple-system, sans-serif',
-            letterSpacing: 1,
+            color: '#666',
+            fontFamily: SYSTEM_FONT,
+            fontSize: '0.75rem',
+            letterSpacing: 0.5,
             textTransform: 'uppercase',
           }}
         >
@@ -55,12 +57,12 @@ export function ReportHeader({ onSettingsClick, onRefresh, loading }: ReportHead
             disabled={loading}
             size="small"
             sx={{ mr: 0.5 }}
-            title="Refresh research"
+            title="Refresh"
           >
-            <RefreshIcon sx={{ fontSize: 20, animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            <RefreshIcon sx={{ fontSize: 18, animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           </IconButton>
-          <IconButton onClick={onSettingsClick} size="small" title="Configure research">
-            <SettingsIcon sx={{ fontSize: 20 }} />
+          <IconButton onClick={onSettingsClick} size="small" title="Settings">
+            <SettingsIcon sx={{ fontSize: 18 }} />
           </IconButton>
         </Box>
       </Box>
@@ -68,33 +70,30 @@ export function ReportHeader({ onSettingsClick, onRefresh, loading }: ReportHead
       <Typography
         variant="h1"
         sx={{
-          fontFamily: '"Cheltenham", "Georgia", serif',
-          fontSize: { xs: '2.5rem', md: '3.5rem' },
-          fontWeight: 700,
+          fontFamily: '"Newsreader", Georgia, serif',
+          fontSize: { xs: '2.25rem', md: '3rem' },
+          fontWeight: 400,
           textAlign: 'center',
           letterSpacing: '-0.02em',
           mb: 0.5,
         }}
       >
-        The Report
+        Daily Report
       </Typography>
 
       <Typography
-        variant="subtitle1"
         sx={{
           textAlign: 'center',
-          color: 'text.secondary',
-          fontFamily: '"Georgia", serif',
-          fontStyle: 'italic',
-          fontSize: '1rem',
-          mb: 2,
+          color: '#666',
+          fontFamily: SYSTEM_FONT,
+          fontSize: '0.875rem',
+          mb: 3,
         }}
       >
-        Your Daily Intelligence Brief
+        AI-curated intelligence brief
       </Typography>
 
-      <Divider sx={{ borderWidth: 1.5, borderColor: 'text.primary' }} />
-      <Divider sx={{ mt: 0.5 }} />
+      <Divider sx={{ borderColor: '#000' }} />
 
       <style>
         {`

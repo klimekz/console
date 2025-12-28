@@ -3,6 +3,8 @@ import type { ResearchReport } from '../types';
 import { ResearchItem } from './ResearchItem';
 import { CATEGORY_LABELS, CATEGORY_ICONS, type CategoryType } from '../types';
 
+const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
+
 interface ResearchSectionProps {
   report: ResearchReport;
   showSummary?: boolean;
@@ -11,44 +13,46 @@ interface ResearchSectionProps {
 export function ResearchSection({ report, showSummary = true }: ResearchSectionProps) {
   const category = report.category as CategoryType;
   const label = CATEGORY_LABELS[category] || report.configName;
-  const icon = CATEGORY_ICONS[category] || '📋';
+  const icon = CATEGORY_ICONS[category] || '';
 
   const sortedItems = [...report.items].sort((a, b) => b.relevanceScore - a.relevanceScore);
   const featuredItem = sortedItems[0];
   const otherItems = sortedItems.slice(1);
 
   return (
-    <Box sx={{ mb: 6 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Typography variant="h6" component="span">
-          {icon}
-        </Typography>
+    <Box sx={{ mb: 5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+        {icon && (
+          <Typography component="span" sx={{ fontSize: '1rem' }}>
+            {icon}
+          </Typography>
+        )}
         <Typography
-          variant="h5"
           sx={{
-            fontFamily: '"Inter", -apple-system, sans-serif',
+            fontFamily: SYSTEM_FONT,
             fontWeight: 600,
             textTransform: 'uppercase',
-            letterSpacing: 1.5,
-            fontSize: '0.85rem',
+            letterSpacing: 1,
+            fontSize: '0.7rem',
+            color: '#666',
           }}
         >
           {label}
         </Typography>
       </Box>
 
-      <Divider sx={{ mb: 3 }} />
+      <Divider sx={{ mb: 2.5, borderColor: '#e0e0e0' }} />
 
       {showSummary && report.summary && (
         <Typography
-          variant="body1"
           sx={{
+            fontFamily: '"Newsreader", Georgia, serif',
             fontStyle: 'italic',
-            color: 'text.secondary',
-            mb: 3,
+            color: '#444',
+            fontSize: '1rem',
+            mb: 2.5,
             pl: 2,
-            borderLeft: '3px solid',
-            borderColor: 'primary.main',
+            borderLeft: '2px solid #121212',
           }}
         >
           {report.summary}
@@ -56,19 +60,17 @@ export function ResearchSection({ report, showSummary = true }: ResearchSectionP
       )}
 
       {report.items.length === 0 ? (
-        <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
-          No items available for this section.
+        <Typography sx={{ color: '#999', fontFamily: SYSTEM_FONT, fontSize: '0.875rem' }}>
+          No items available.
         </Typography>
       ) : (
-        <Grid container spacing={4}>
-          {/* Featured item - full width */}
+        <Grid container spacing={3}>
           {featuredItem && (
             <Grid size={12}>
               <ResearchItem item={featuredItem} featured />
             </Grid>
           )}
 
-          {/* Other items in columns */}
           {otherItems.map((item) => (
             <Grid key={item.id} size={{ xs: 12, md: 6 }}>
               <ResearchItem item={item} />

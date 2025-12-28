@@ -1,27 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600&display=swap');
-
-/* Cheltenham fallback - using Libre Baskerville as a similar alternative */
-@font-face {
-  font-family: 'Cheltenham';
-  src: local('Libre Baskerville');
-  font-weight: 400;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Cheltenham';
-  src: local('Libre Baskerville');
-  font-weight: 700;
-  font-style: normal;
-}
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap');
 
 :root {
-  font-family: 'Georgia', 'Times New Roman', serif;
-  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  line-height: 1.5;
   font-weight: 400;
   color-scheme: light;
   color: #121212;
-  background-color: #fafafa;
+  background-color: #fff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -49,9 +34,4 @@ a:hover {
 
 ::selection {
   background-color: rgba(0, 0, 0, 0.1);
-}
-
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
 }

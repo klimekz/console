@@ -2,6 +2,8 @@ import { Box, Typography, Container, Grid, Paper } from '@mui/material';
 import { Link } from 'react-router-dom';
 import ArticleIcon from '@mui/icons-material/Article';
 
+const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
+
 interface ToolCardProps {
   title: string;
   description: string;
@@ -15,27 +17,27 @@ function ToolCard({ title, description, icon, to, disabled }: ToolCardProps) {
     <Paper
       elevation={0}
       sx={{
-        p: 4,
+        p: 3,
         height: '100%',
         border: '1px solid',
-        borderColor: disabled ? 'grey.300' : 'grey.400',
+        borderColor: disabled ? '#e0e0e0' : '#000',
         borderRadius: 0,
         cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
-        transition: 'all 0.2s ease',
+        opacity: disabled ? 0.4 : 1,
+        transition: 'background-color 0.15s ease',
         '&:hover': disabled ? {} : {
-          borderColor: 'grey.900',
-          transform: 'translateY(-2px)',
+          bgcolor: '#f5f5f5',
         },
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
         {icon}
         <Typography
           variant="h6"
           sx={{
-            fontFamily: '"Cheltenham", "Georgia", serif',
-            fontWeight: 700,
+            fontFamily: SYSTEM_FONT,
+            fontWeight: 600,
+            fontSize: '1rem',
             letterSpacing: '-0.01em',
           }}
         >
@@ -45,9 +47,10 @@ function ToolCard({ title, description, icon, to, disabled }: ToolCardProps) {
       <Typography
         variant="body2"
         sx={{
-          color: 'text.secondary',
-          fontFamily: '"Georgia", serif',
-          lineHeight: 1.6,
+          color: '#666',
+          fontFamily: SYSTEM_FONT,
+          fontSize: '0.875rem',
+          lineHeight: 1.5,
         }}
       >
         {description}
@@ -57,9 +60,9 @@ function ToolCard({ title, description, icon, to, disabled }: ToolCardProps) {
           variant="caption"
           sx={{
             display: 'block',
-            mt: 2,
-            color: 'text.disabled',
-            fontStyle: 'italic',
+            mt: 1.5,
+            color: '#999',
+            fontFamily: SYSTEM_FONT,
           }}
         >
           Coming soon
@@ -81,72 +84,44 @@ function ToolCard({ title, description, icon, to, disabled }: ToolCardProps) {
 
 export function LandingPage() {
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <Container maxWidth="md" sx={{ flex: 1, py: 8 }}>
-        <Box sx={{ textAlign: 'center', mb: 8 }}>
+    <Box sx={{ minHeight: '100vh', py: 8 }}>
+      <Container maxWidth="sm">
+        <Box sx={{ mb: 6 }}>
           <Typography
             variant="h1"
             sx={{
-              fontFamily: '"Cheltenham", "Georgia", serif',
-              fontSize: { xs: '3rem', md: '4.5rem' },
+              fontFamily: SYSTEM_FONT,
+              fontSize: { xs: '2.5rem', md: '3rem' },
               fontWeight: 700,
               letterSpacing: '-0.03em',
-              mb: 2,
+              mb: 0.5,
             }}
           >
             Console
           </Typography>
           <Typography
-            variant="h6"
+            variant="body1"
             sx={{
-              fontFamily: '"Georgia", serif',
-              fontWeight: 400,
-              color: 'text.secondary',
-              fontStyle: 'italic',
+              fontFamily: SYSTEM_FONT,
+              color: '#666',
+              fontSize: '1rem',
             }}
           >
-            Zack's personal tools
+            Personal tools
           </Typography>
         </Box>
 
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6 }}>
             <ToolCard
-              title="Report"
-              description="Daily intelligence brief with AI-curated research papers, tech news, and market insights."
-              icon={<ArticleIcon sx={{ fontSize: 28 }} />}
+              title="Daily Report"
+              description="AI-curated research papers, tech news, and market insights."
+              icon={<ArticleIcon sx={{ fontSize: 22 }} />}
               to="/report"
             />
           </Grid>
-          {/* Add more tools here as they're built */}
         </Grid>
       </Container>
-
-      <Box
-        component="footer"
-        sx={{
-          py: 3,
-          textAlign: 'center',
-          borderTop: '1px solid',
-          borderColor: 'grey.300',
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'text.disabled',
-            fontFamily: '"Georgia", serif',
-          }}
-        >
-          Built with care
-        </Typography>
-      </Box>
     </Box>
   );
 }
