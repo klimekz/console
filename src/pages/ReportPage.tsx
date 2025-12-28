@@ -9,11 +9,17 @@ import {
 import {
   ReportHeader,
   ResearchSection,
+  ResearchProgress,
   HistoricalReports,
   SettingsDialog,
 } from '../components';
 import type { ResearchReport, TodayResponse } from '../types';
 import { reportsApi } from '../api/client';
+
+interface RunningResearch {
+  configNames: string[];
+  startTime: number;
+}
 
 export function ReportPage() {
   const [todayData, setTodayData] = useState<TodayResponse | null>(null);
@@ -21,6 +27,7 @@ export function ReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [runningResearch, setRunningResearch] = useState<RunningResearch | null>(null);
 
   const loadTodayReports = useCallback(async () => {
     try {
@@ -58,7 +65,15 @@ export function ReportPage() {
     }
   };
 
+  const handleRunStart = (_configIds: string[], configNames: string[]) => {
+    setRunningResearch({
+      configNames,
+      startTime: Date.now(),
+    });
+  };
+
   const handleRunComplete = async () => {
+    setRunningResearch(null);
     await loadTodayReports();
   };
 
@@ -94,6 +109,13 @@ export function ReportPage() {
             onClear={handleClear}
             loading={refreshing}
           />
+
+          {runningResearch && (
+            <ResearchProgress
+              configNames={runningResearch.configNames}
+              startTime={runningResearch.startTime}
+            />
+          )}
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -151,6 +173,7 @@ export function ReportPage() {
       <SettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        onRunStart={handleRunStart}
         onRunComplete={handleRunComplete}
       />
     </>

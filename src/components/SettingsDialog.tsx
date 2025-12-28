@@ -32,15 +32,14 @@ import { configsApi, reportsApi } from '../api/client';
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
+  onRunStart: (configIds: string[], configNames: string[]) => void;
   onRunComplete: () => void;
 }
 
-export function SettingsDialog({ open, onClose, onRunComplete }: SettingsDialogProps) {
+export function SettingsDialog({ open, onClose, onRunStart, onRunComplete }: SettingsDialogProps) {
   const [configs, setConfigs] = useState<ResearchConfig[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newTopic, setNewTopic] = useState<Record<string, string>>({});
-  const [runningConfig, setRunningConfig] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -102,27 +101,44 @@ export function SettingsDialog({ open, onClose, onRunComplete }: SettingsDialogP
   };
 
   const handleRunNow = async (configId: string) => {
-    setRunningConfig(configId);
+    const config = configs.find(c => c.id === configId);
+    if (!config) return;
+
+    // Close modal and notify parent immediately
+    onClose();
+    onRunStart([configId], [config.name]);
+
+    // Run research in background
     try {
       await reportsApi.runConfig(configId);
       onRunComplete();
     } catch (err) {
-      setError('Failed to run research');
-    } finally {
-      setRunningConfig(null);
+      console.error('Failed to run research:', err);
+      onRunComplete(); // Still call complete to clear the running state
     }
   };
 
   const handleRunAll = async () => {
-    setLoading(true);
+    const enabledConfigs = configs.filter(c => c.enabled);
+    if (enabledConfigs.length === 0) {
+      setError('No enabled configurations to run');
+      return;
+    }
+
+    // Close modal and notify parent immediately
+    onClose();
+    onRunStart(
+      enabledConfigs.map(c => c.id),
+      enabledConfigs.map(c => c.name)
+    );
+
+    // Run research in background
     try {
       await reportsApi.runAll();
       onRunComplete();
-      onClose();
     } catch (err) {
-      setError('Failed to run all research');
-    } finally {
-      setLoading(false);
+      console.error('Failed to run all research:', err);
+      onRunComplete(); // Still call complete to clear the running state
     }
   };
 
@@ -248,9 +264,8 @@ export function SettingsDialog({ open, onClose, onRunComplete }: SettingsDialogP
                     size="small"
                     startIcon={<PlayArrowIcon />}
                     onClick={() => handleRunNow(config.id)}
-                    disabled={runningConfig === config.id}
                   >
-                    {runningConfig === config.id ? 'Running...' : 'Run Now'}
+                    Run Now
                   </Button>
                 </Box>
               </AccordionDetails>
@@ -266,10 +281,9 @@ export function SettingsDialog({ open, onClose, onRunComplete }: SettingsDialogP
         <Button
           variant="contained"
           onClick={handleRunAll}
-          disabled={loading}
           startIcon={<PlayArrowIcon />}
         >
-          {loading ? 'Running All...' : 'Run All Research'}
+          Run All Research
         </Button>
       </DialogActions>
     </Dialog>
