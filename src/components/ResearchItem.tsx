@@ -38,10 +38,10 @@ export function ResearchItem({ item, featured = false }: ResearchItemProps) {
         <Typography
           component="h3"
           sx={{
-            fontFamily: '"Playfair Display", "Times New Roman", serif',
-            fontSize: featured ? { xs: '1.5rem', md: '2rem' } : { xs: '1.1rem', md: '1.25rem' },
-            fontWeight: 600,
-            lineHeight: 1.2,
+            fontFamily: '"Libre Baskerville", "Georgia", serif',
+            fontSize: featured ? { xs: '1.4rem', md: '1.75rem' } : { xs: '1.05rem', md: '1.15rem' },
+            fontWeight: 700,
+            lineHeight: 1.25,
             mb: 1,
             color: 'text.primary',
           }}

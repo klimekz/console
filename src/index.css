@@ -1,12 +1,27 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600&display=swap');
+
+/* Cheltenham fallback - using Libre Baskerville as a similar alternative */
+@font-face {
+  font-family: 'Cheltenham';
+  src: local('Libre Baskerville');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Cheltenham';
+  src: local('Libre Baskerville');
+  font-weight: 700;
+  font-style: normal;
+}
 
 :root {
   font-family: 'Georgia', 'Times New Roman', serif;
   line-height: 1.6;
   font-weight: 400;
   color-scheme: light;
-  color: #1a1a1a;
-  background-color: #faf9f6;
+  color: #121212;
+  background-color: #fafafa;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -24,7 +39,7 @@ body {
 }
 
 a {
-  color: #1a1a1a;
+  color: #121212;
   text-decoration: none;
 }
 
@@ -34,4 +49,9 @@ a:hover {
 
 ::selection {
   background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }

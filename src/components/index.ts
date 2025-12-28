@@ -1,4 +1,4 @@
-export { Header } from './Header';
+export { ReportHeader } from './Header';
 export { ResearchItem } from './ResearchItem';
 export { ResearchSection } from './ResearchSection';
 export { HistoricalReports } from './HistoricalReports';

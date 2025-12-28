@@ -26,10 +26,11 @@ export function ResearchSection({ report, showSummary = true }: ResearchSectionP
         <Typography
           variant="h5"
           sx={{
-            fontFamily: '"Playfair Display", "Times New Roman", serif',
-            fontWeight: 700,
+            fontFamily: '"Inter", -apple-system, sans-serif',
+            fontWeight: 600,
             textTransform: 'uppercase',
-            letterSpacing: 2,
+            letterSpacing: 1.5,
+            fontSize: '0.85rem',
           }}
         >
           {label}
