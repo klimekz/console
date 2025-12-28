@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import configsRoutes from './routes/configs';
 import reportsRoutes from './routes/reports';
+import auditRoutes from './routes/audit';
 import { initializeScheduler, getScheduledConfigs } from './services/scheduler';
 import { getDb } from './db';
 
@@ -28,6 +29,7 @@ app.get('/health', (c) => {
 // API routes
 app.route('/api/configs', configsRoutes);
 app.route('/api/reports', reportsRoutes);
+app.route('/api/audit', auditRoutes);
 
 // Initialize database and scheduler
 console.log('Initializing database...');

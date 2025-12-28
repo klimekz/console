@@ -61,41 +61,47 @@ reports.get('/:id', (c) => {
   return c.json(report);
 });
 
-// Trigger research run for a specific config
-reports.post('/run/:configId', async (c) => {
+// Trigger research run for a specific config (async - returns immediately)
+reports.post('/run/:configId', (c) => {
   const configId = c.req.param('configId');
+  const config = db.getConfigById(configId);
 
-  try {
-    const report = await executeResearchConfig(configId);
-
-    if (!report) {
-      return c.json({ error: 'Config not found or research failed' }, 404);
-    }
-
-    return c.json(report, 201);
-  } catch (error) {
-    console.error('Research run failed:', error);
-    return c.json({ error: 'Research run failed' }, 500);
+  if (!config) {
+    return c.json({ error: 'Config not found' }, 404);
   }
+
+  // Fire and forget - run in background
+  executeResearchConfig(configId).catch((error) => {
+    console.error('Research run failed:', error);
+  });
+
+  return c.json({
+    started: true,
+    configId,
+    configName: config.name,
+    message: 'Research started. Poll /api/audit/status for progress.',
+  }, 202);
 });
 
-// Trigger research run for all enabled configs
-reports.post('/run-all', async (c) => {
-  try {
-    const reports = await executeAllEnabledConfigs();
-    return c.json({
-      success: true,
-      count: reports.length,
-      reports: reports.map(r => ({
-        id: r.id,
-        configName: r.configName,
-        itemCount: r.items.length,
-      })),
-    }, 201);
-  } catch (error) {
-    console.error('Research run-all failed:', error);
-    return c.json({ error: 'Research run failed' }, 500);
+// Trigger research run for all enabled configs (async - returns immediately)
+reports.post('/run-all', (c) => {
+  const configs = db.getAllConfigs().filter((cfg) => cfg.enabled);
+
+  if (configs.length === 0) {
+    return c.json({ error: 'No enabled configs' }, 400);
   }
+
+  // Fire and forget - run in background
+  executeAllEnabledConfigs().catch((error) => {
+    console.error('Research run-all failed:', error);
+  });
+
+  return c.json({
+    started: true,
+    count: configs.length,
+    configs: configs.map((cfg) => ({ id: cfg.id, name: cfg.name })),
+    message: 'Research started. Poll /api/audit/status for progress.',
+  }, 202);
 });
 
 // Delete all reports (for debugging)

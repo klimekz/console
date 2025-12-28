@@ -1,4 +1,4 @@
-import type { ResearchConfig, ResearchReport, PaginatedResponse, TodayResponse } from '../types';
+import type { ResearchConfig, ResearchReport, PaginatedResponse, TodayResponse, AuditEntry, AuditStatus } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -74,4 +74,16 @@ export const reportsApi = {
     fetchApi<{ success: boolean; deleted: number }>('/api/reports/clear', {
       method: 'DELETE',
     }),
+};
+
+// Audit API
+export const auditApi = {
+  getStatus: () => fetchApi<AuditStatus>('/api/audit/status'),
+
+  getEntry: (id: string) => fetchApi<AuditEntry>(`/api/audit/${id}`),
+
+  getRecent: (limit = 50) =>
+    fetchApi<{ entries: AuditEntry[]; totals: { totalCostCents: number; totalInputTokens: number; totalOutputTokens: number; totalWebSearches: number } }>(
+      `/api/audit?limit=${limit}`
+    ),
 };

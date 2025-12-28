@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Container,
@@ -13,13 +13,8 @@ import {
   HistoricalReports,
   SettingsDialog,
 } from '../components';
-import type { ResearchReport, TodayResponse } from '../types';
-import { reportsApi } from '../api/client';
-
-interface RunningResearch {
-  configNames: string[];
-  startTime: number;
-}
+import type { ResearchReport, TodayResponse, AuditEntry } from '../types';
+import { reportsApi, auditApi } from '../api/client';
 
 export function ReportPage() {
   const [todayData, setTodayData] = useState<TodayResponse | null>(null);
@@ -27,7 +22,12 @@ export function ReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [runningResearch, setRunningResearch] = useState<RunningResearch | null>(null);
+
+  // Audit status from backend
+  const [runningEntries, setRunningEntries] = useState<AuditEntry[]>([]);
+  const [recentFailed, setRecentFailed] = useState<AuditEntry[]>([]);
+  const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
+  const previousRunningRef = useRef<string[]>([]);
 
   const loadTodayReports = useCallback(async () => {
     try {
@@ -40,14 +40,48 @@ export function ReportPage() {
     }
   }, []);
 
+  // Poll for audit status
+  const checkAuditStatus = useCallback(async () => {
+    try {
+      const status = await auditApi.getStatus();
+      const previousIds = previousRunningRef.current;
+      const currentIds = status.running.map((e) => e.id);
+
+      // Check if any previously running research just completed
+      const justCompleted = previousIds.filter((id) => !currentIds.includes(id));
+      if (justCompleted.length > 0) {
+        // Refresh reports when research completes
+        await loadTodayReports();
+      }
+
+      previousRunningRef.current = currentIds;
+      setRunningEntries(status.running);
+
+      // Filter out dismissed errors
+      const failedNotDismissed = status.recentCompleted.filter(
+        (e) => e.status === 'failed' && !dismissedErrors.has(e.id)
+      );
+      setRecentFailed(failedNotDismissed);
+    } catch (err) {
+      console.error('Failed to check audit status:', err);
+    }
+  }, [loadTodayReports, dismissedErrors]);
+
+  // Initial load
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      await loadTodayReports();
+      await Promise.all([loadTodayReports(), checkAuditStatus()]);
       setLoading(false);
     };
     fetchData();
-  }, [loadTodayReports]);
+  }, [loadTodayReports, checkAuditStatus]);
+
+  // Poll for status every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(checkAuditStatus, 3000);
+    return () => clearInterval(interval);
+  }, [checkAuditStatus]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -65,16 +99,8 @@ export function ReportPage() {
     }
   };
 
-  const handleRunStart = (_configIds: string[], configNames: string[]) => {
-    setRunningResearch({
-      configNames,
-      startTime: Date.now(),
-    });
-  };
-
-  const handleRunComplete = async () => {
-    setRunningResearch(null);
-    await loadTodayReports();
+  const handleDismissError = (id: string) => {
+    setDismissedErrors((prev) => new Set([...prev, id]));
   };
 
   // Group reports by category for display order
@@ -110,12 +136,11 @@ export function ReportPage() {
             loading={refreshing}
           />
 
-          {runningResearch && (
-            <ResearchProgress
-              configNames={runningResearch.configNames}
-              startTime={runningResearch.startTime}
-            />
-          )}
+          <ResearchProgress
+            runningEntries={runningEntries}
+            recentFailed={recentFailed}
+            onDismissError={handleDismissError}
+          />
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -173,8 +198,6 @@ export function ReportPage() {
       <SettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        onRunStart={handleRunStart}
-        onRunComplete={handleRunComplete}
       />
     </>
   );

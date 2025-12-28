@@ -178,6 +178,7 @@ export async function executeResearchConfig(configId: string): Promise<db.Resear
   const auditId = db.createAuditEntry({
     eventType: 'research_run',
     configId: config.id,
+    configName: config.name,
     model: DEEP_RESEARCH_MODEL,
   });
 

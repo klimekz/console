@@ -32,11 +32,9 @@ import { configsApi, reportsApi } from '../api/client';
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
-  onRunStart: (configIds: string[], configNames: string[]) => void;
-  onRunComplete: () => void;
 }
 
-export function SettingsDialog({ open, onClose, onRunStart, onRunComplete }: SettingsDialogProps) {
+export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const [configs, setConfigs] = useState<ResearchConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [newTopic, setNewTopic] = useState<Record<string, string>>({});
@@ -101,20 +99,13 @@ export function SettingsDialog({ open, onClose, onRunStart, onRunComplete }: Set
   };
 
   const handleRunNow = async (configId: string) => {
-    const config = configs.find(c => c.id === configId);
-    if (!config) return;
-
-    // Close modal and notify parent immediately
     onClose();
-    onRunStart([configId], [config.name]);
-
-    // Run research in background
     try {
       await reportsApi.runConfig(configId);
-      onRunComplete();
+      // Backend returns 202, research runs in background
+      // Frontend polls /api/audit/status automatically
     } catch (err) {
-      console.error('Failed to run research:', err);
-      onRunComplete(); // Still call complete to clear the running state
+      console.error('Failed to start research:', err);
     }
   };
 
@@ -125,20 +116,13 @@ export function SettingsDialog({ open, onClose, onRunStart, onRunComplete }: Set
       return;
     }
 
-    // Close modal and notify parent immediately
     onClose();
-    onRunStart(
-      enabledConfigs.map(c => c.id),
-      enabledConfigs.map(c => c.name)
-    );
-
-    // Run research in background
     try {
       await reportsApi.runAll();
-      onRunComplete();
+      // Backend returns 202, research runs in background
+      // Frontend polls /api/audit/status automatically
     } catch (err) {
-      console.error('Failed to run all research:', err);
-      onRunComplete(); // Still call complete to clear the running state
+      console.error('Failed to start research:', err);
     }
   };
 

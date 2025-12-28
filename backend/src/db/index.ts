@@ -283,6 +283,7 @@ export interface AuditEntry {
   id: string;
   eventType: string;
   configId?: string;
+  configName?: string;
   reportId?: string;
   model?: string;
   inputTokens: number;
@@ -299,15 +300,16 @@ export interface AuditEntry {
 export function createAuditEntry(entry: {
   eventType: string;
   configId?: string;
+  configName?: string;
   model?: string;
 }): string {
   const db = getDb();
   const id = randomUUID();
 
   db.run(`
-    INSERT INTO audit_log (id, event_type, config_id, model, status)
-    VALUES (?, ?, ?, ?, 'started')
-  `, [id, entry.eventType, entry.configId || null, entry.model || null]);
+    INSERT INTO audit_log (id, event_type, config_id, config_name, model, status)
+    VALUES (?, ?, ?, ?, ?, 'started')
+  `, [id, entry.eventType, entry.configId || null, entry.configName || null, entry.model || null]);
 
   return id;
 }
@@ -374,8 +376,8 @@ export function updateAuditEntry(id: string, updates: {
 export function getRecentAuditEntries(limit: number = 50): AuditEntry[] {
   const db = getDb();
   const rows = db.query(`
-    SELECT id, event_type as eventType, config_id as configId, report_id as reportId,
-           model, input_tokens as inputTokens, output_tokens as outputTokens,
+    SELECT id, event_type as eventType, config_id as configId, config_name as configName,
+           report_id as reportId, model, input_tokens as inputTokens, output_tokens as outputTokens,
            web_search_calls as webSearchCalls, estimated_cost_cents as estimatedCostCents,
            runtime_ms as runtimeMs, status, error_message as errorMessage,
            created_at as createdAt, completed_at as completedAt
@@ -383,6 +385,55 @@ export function getRecentAuditEntries(limit: number = 50): AuditEntry[] {
     ORDER BY created_at DESC
     LIMIT ?
   `).all(limit) as AuditEntry[];
+
+  return rows;
+}
+
+export function getRunningAuditEntries(): AuditEntry[] {
+  const db = getDb();
+  const rows = db.query(`
+    SELECT id, event_type as eventType, config_id as configId, config_name as configName,
+           report_id as reportId, model, input_tokens as inputTokens, output_tokens as outputTokens,
+           web_search_calls as webSearchCalls, estimated_cost_cents as estimatedCostCents,
+           runtime_ms as runtimeMs, status, error_message as errorMessage,
+           created_at as createdAt, completed_at as completedAt
+    FROM audit_log
+    WHERE status = 'started'
+    ORDER BY created_at DESC
+  `).all() as AuditEntry[];
+
+  return rows;
+}
+
+export function getAuditEntry(id: string): AuditEntry | null {
+  const db = getDb();
+  const row = db.query(`
+    SELECT id, event_type as eventType, config_id as configId, config_name as configName,
+           report_id as reportId, model, input_tokens as inputTokens, output_tokens as outputTokens,
+           web_search_calls as webSearchCalls, estimated_cost_cents as estimatedCostCents,
+           runtime_ms as runtimeMs, status, error_message as errorMessage,
+           created_at as createdAt, completed_at as completedAt
+    FROM audit_log
+    WHERE id = ?
+  `).get(id) as AuditEntry | null;
+
+  return row;
+}
+
+// Get recent completed/failed entries (for showing results after refresh)
+export function getRecentCompletedAuditEntries(sinceMinutes: number = 5): AuditEntry[] {
+  const db = getDb();
+  const rows = db.query(`
+    SELECT id, event_type as eventType, config_id as configId, config_name as configName,
+           report_id as reportId, model, input_tokens as inputTokens, output_tokens as outputTokens,
+           web_search_calls as webSearchCalls, estimated_cost_cents as estimatedCostCents,
+           runtime_ms as runtimeMs, status, error_message as errorMessage,
+           created_at as createdAt, completed_at as completedAt
+    FROM audit_log
+    WHERE status IN ('completed', 'failed')
+      AND completed_at > datetime('now', '-' || ? || ' minutes')
+    ORDER BY completed_at DESC
+  `).all(sinceMinutes) as AuditEntry[];
 
   return rows;
 }

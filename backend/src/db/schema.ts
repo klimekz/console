@@ -64,6 +64,7 @@ export function createSchema(db: Database): void {
       id TEXT PRIMARY KEY,
       event_type TEXT NOT NULL,
       config_id TEXT,
+      config_name TEXT,
       report_id TEXT,
       model TEXT,
       input_tokens INTEGER DEFAULT 0,

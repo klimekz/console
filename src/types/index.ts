@@ -61,3 +61,26 @@ export const CATEGORY_ICONS: Record<CategoryType, string> = {
   news: '📰',
   markets: '📈',
 };
+
+export interface AuditEntry {
+  id: string;
+  eventType: string;
+  configId?: string;
+  configName?: string;
+  reportId?: string;
+  model?: string;
+  inputTokens: number;
+  outputTokens: number;
+  webSearchCalls: number;
+  estimatedCostCents: number;
+  runtimeMs: number;
+  status: 'started' | 'completed' | 'failed';
+  errorMessage?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface AuditStatus {
+  running: AuditEntry[];
+  recentCompleted: AuditEntry[];
+}
