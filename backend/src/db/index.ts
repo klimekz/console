@@ -29,7 +29,7 @@ export function getAllConfigs(): ResearchConfig[] {
   const db = getDb();
   const rows = db.query(`
     SELECT id, name, description, prompt, category, topics, enabled, schedule,
-           research_mode as researchMode, created_at as createdAt, updated_at as updatedAt
+           created_at as createdAt, updated_at as updatedAt
     FROM research_configs
     ORDER BY category, name
   `).all() as any[];
@@ -38,7 +38,6 @@ export function getAllConfigs(): ResearchConfig[] {
     ...row,
     topics: JSON.parse(row.topics),
     enabled: Boolean(row.enabled),
-    researchMode: row.researchMode || 'lite',
   }));
 }
 
@@ -46,7 +45,7 @@ export function getConfigById(id: string): ResearchConfig | null {
   const db = getDb();
   const row = db.query(`
     SELECT id, name, description, prompt, category, topics, enabled, schedule,
-           research_mode as researchMode, created_at as createdAt, updated_at as updatedAt
+           created_at as createdAt, updated_at as updatedAt
     FROM research_configs WHERE id = ?
   `).get(id) as any;
 
@@ -56,7 +55,6 @@ export function getConfigById(id: string): ResearchConfig | null {
     ...row,
     topics: JSON.parse(row.topics),
     enabled: Boolean(row.enabled),
-    researchMode: row.researchMode || 'lite',
   };
 }
 
@@ -83,9 +81,9 @@ export function updateConfig(id: string, updates: Partial<ResearchConfig>): Rese
   db.run(`
     UPDATE research_configs
     SET name = ?, description = ?, prompt = ?, category = ?, topics = ?,
-        enabled = ?, schedule = ?, research_mode = ?, updated_at = ?
+        enabled = ?, schedule = ?, updated_at = ?
     WHERE id = ?
-  `, [updated.name, updated.description, updated.prompt, updated.category, JSON.stringify(updated.topics), updated.enabled ? 1 : 0, updated.schedule, updated.researchMode || 'lite', updated.updatedAt, id]);
+  `, [updated.name, updated.description, updated.prompt, updated.category, JSON.stringify(updated.topics), updated.enabled ? 1 : 0, updated.schedule, updated.updatedAt, id]);
 
   return updated;
 }

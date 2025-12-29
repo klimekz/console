@@ -25,7 +25,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import type { ResearchConfig, CategoryType, ResearchMode } from '../types';
+import type { ResearchConfig, CategoryType } from '../types';
 import { CATEGORY_LABELS } from '../types';
 import { configsApi, reportsApi } from '../api/client';
 
@@ -69,15 +69,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
     } catch (err) {
       setError('Failed to update schedule');
-    }
-  };
-
-  const handleModeChange = async (config: ResearchConfig, researchMode: ResearchMode) => {
-    try {
-      const updated = await configsApi.update(config.id, { researchMode });
-      setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
-    } catch (err) {
-      setError('Failed to update research mode');
     }
   };
 
@@ -142,11 +133,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     { value: '0 18 * * *', label: 'Daily at 6 PM' },
     { value: '0 6 * * 1-5', label: 'Weekdays at 6 AM' },
     { value: '0 6 * * 1', label: 'Weekly on Monday' },
-  ];
-
-  const modeOptions: { value: ResearchMode; label: string; description: string }[] = [
-    { value: 'lite', label: 'Lite (Fast)', description: 'GPT-4o-mini + web search. Fast, cheap, reliable.' },
-    { value: 'deep', label: 'Deep (Thorough)', description: 'Deep research model. Slower, more thorough, higher token usage.' },
   ];
 
   return (
@@ -241,23 +227,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                   </Box>
                 </Box>
 
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
-                    <InputLabel>Mode</InputLabel>
-                    <Select
-                      value={config.researchMode || 'lite'}
-                      label="Mode"
-                      onChange={(e) => handleModeChange(config, e.target.value as ResearchMode)}
-                    >
-                      {modeOptions.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  <FormControl size="small" sx={{ minWidth: 200 }}>
                     <InputLabel>Schedule</InputLabel>
                     <Select
                       value={config.schedule}

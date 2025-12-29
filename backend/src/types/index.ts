@@ -1,5 +1,3 @@
-export type ResearchMode = 'deep' | 'lite';
-
 export interface ResearchConfig {
   id: string;
   name: string;
@@ -9,7 +7,6 @@ export interface ResearchConfig {
   topics: string[];
   enabled: boolean;
   schedule: string; // cron expression
-  researchMode: ResearchMode; // 'deep' = o4-mini-deep-research, 'lite' = gpt-4o-mini with web search
   createdAt: string;
   updatedAt: string;
 }

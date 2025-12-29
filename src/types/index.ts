@@ -1,5 +1,3 @@
-export type ResearchMode = 'deep' | 'lite';
-
 export interface ResearchConfig {
   id: string;
   name: string;
@@ -9,7 +7,6 @@ export interface ResearchConfig {
   topics: string[];
   enabled: boolean;
   schedule: string;
-  researchMode: ResearchMode;
   createdAt: string;
   updatedAt: string;
 }
