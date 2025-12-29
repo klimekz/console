@@ -1,5 +1,5 @@
 {
-  "name": "console-backend",
+  "name": "@console/api",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
