@@ -116,9 +116,12 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
         const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
         console.log(`Rate limit hit, waiting ${delayMs / 1000}s before retry ${attempt}/${MAX_RETRIES}...`);
         await sleep(delayMs);
+
+        // Clear retry message now that we're attempting again
+        db.updateAuditEntry(auditId, { errorMessage: undefined });
       }
 
-      console.log(`Starting deep research with ${DEEP_RESEARCH_MODEL}...`);
+      console.log(`Starting deep research with ${DEEP_RESEARCH_MODEL}... (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
 
       // Use the Responses API with deep research model and web search tool
       // background: true allows long-running tasks without connection timeout issues
@@ -223,7 +226,14 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
 
       // If it's a rate limit error and we have retries left, continue
       if (isRateLimitError(error) && attempt < MAX_RETRIES) {
-        console.log(`Rate limit error on attempt ${attempt + 1}, will retry...`);
+        const nextAttempt = attempt + 2; // +2 because attempt is 0-indexed and we're about to retry
+        console.log(`Rate limit error on attempt ${attempt + 1}, will retry (${nextAttempt}/${MAX_RETRIES + 1})...`);
+
+        // Update audit entry to show retry status in UI
+        db.updateAuditEntry(auditId, {
+          errorMessage: `Rate limited - retrying (${nextAttempt}/${MAX_RETRIES + 1})...`,
+        });
+
         continue;
       }
 

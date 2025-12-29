@@ -113,15 +113,29 @@ export function ResearchProgress({ runningEntries, recentFailed, onDismissError 
             return (
               <Box key={entry.id} sx={{ mb: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography
-                    sx={{
-                      fontFamily: SYSTEM_FONT,
-                      fontSize: '0.8rem',
-                      color: '#aaa',
-                    }}
-                  >
-                    {entry.configName || entry.configId}
-                  </Typography>
+                  <Box>
+                    <Typography
+                      sx={{
+                        fontFamily: SYSTEM_FONT,
+                        fontSize: '0.8rem',
+                        color: '#aaa',
+                      }}
+                    >
+                      {entry.configName || entry.configId}
+                    </Typography>
+                    {entry.errorMessage && (
+                      <Typography
+                        sx={{
+                          fontFamily: MONO_FONT,
+                          fontSize: '0.7rem',
+                          color: '#ffaa00',
+                          mt: 0.5,
+                        }}
+                      >
+                        {entry.errorMessage}
+                      </Typography>
+                    )}
+                  </Box>
                   <Typography
                     sx={{
                       fontFamily: MONO_FONT,
