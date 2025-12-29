@@ -68,7 +68,7 @@ export function ResearchSection({ report, showSummary = true, onItemDelete }: Re
           )}
 
           {otherItems.map((item) => (
-            <Grid key={item.id} size={{ xs: 12, md: 6 }}>
+            <Grid key={item.id} size={{ xs: 12, sm: 6 }}>
               <ResearchItem item={item} onDelete={onItemDelete} />
             </Grid>
           ))}
