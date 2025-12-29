@@ -53,9 +53,9 @@ export interface TodayResponse {
 export type CategoryType = 'papers' | 'news' | 'markets';
 
 export const CATEGORY_LABELS: Record<CategoryType, string> = {
-  papers: 'Research Papers',
-  news: 'Tech News',
-  markets: 'Markets',
+  papers: 'Research',
+  news: 'Tech',
+  markets: 'Finance',
 };
 
 

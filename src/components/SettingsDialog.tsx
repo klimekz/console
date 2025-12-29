@@ -352,7 +352,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
                   value={newTopic[config.id] || ''}
                   onChange={(v) => setNewTopic((prev) => ({ ...prev, [config.id]: v }))}
                   onAdd={() => handleAddTopic(config)}
-                  placeholder="Add topic and press Enter"
+                  placeholder=""
                   chips={config.topics}
                   onRemove={(t) => handleRemoveTopic(config, t)}
                 />
