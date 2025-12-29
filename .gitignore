@@ -29,7 +29,7 @@ dist-ssr
 .env.*.local
 
 # Backend specific
-backend/data/
+packages/api/data/
 *.db
 *.db-wal
 *.db-shm

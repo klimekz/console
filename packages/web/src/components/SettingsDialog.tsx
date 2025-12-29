@@ -15,7 +15,6 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   Collapse,
   InputAdornment,
 } from '@mui/material';
