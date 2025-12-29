@@ -9,9 +9,10 @@ const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvet
 interface ResearchSectionProps {
   report: ResearchReport;
   showSummary?: boolean;
+  onItemDelete?: (itemId: string) => void;
 }
 
-export function ResearchSection({ report, showSummary = true }: ResearchSectionProps) {
+export function ResearchSection({ report, showSummary = true, onItemDelete }: ResearchSectionProps) {
   const category = report.category as CategoryType;
   const label = CATEGORY_LABELS[category] || report.configName;
 
@@ -62,13 +63,13 @@ export function ResearchSection({ report, showSummary = true }: ResearchSectionP
         <Grid container spacing={3}>
           {featuredItem && (
             <Grid size={12}>
-              <ResearchItem item={featuredItem} featured />
+              <ResearchItem item={featuredItem} featured onDelete={onItemDelete} />
             </Grid>
           )}
 
           {otherItems.map((item) => (
             <Grid key={item.id} size={{ xs: 12, md: 6 }}>
-              <ResearchItem item={item} />
+              <ResearchItem item={item} onDelete={onItemDelete} />
             </Grid>
           ))}
         </Grid>

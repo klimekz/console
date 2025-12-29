@@ -151,6 +151,20 @@ export function ReportPage() {
     setDismissedErrors((prev) => new Set([...prev, id]));
   };
 
+  const handleItemDelete = (itemId: string) => {
+    // Remove the item from local state
+    setTodayData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        data: prev.data.map((report) => ({
+          ...report,
+          items: report.items.filter((item) => item.id !== itemId),
+        })),
+      };
+    });
+  };
+
   // Group reports by category for display order
   const groupedReports = todayData?.data.reduce(
     (acc, report) => {
@@ -222,7 +236,7 @@ export function ReportPage() {
                   (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
                 )[0];
 
-                return <ResearchSection key={category} report={latestReport} />;
+                return <ResearchSection key={category} report={latestReport} onItemDelete={handleItemDelete} />;
               })}
 
               {/* Also show any other categories not in the predefined order */}
@@ -232,7 +246,7 @@ export function ReportPage() {
                   const latestReport = reports.sort(
                     (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
                   )[0];
-                  return <ResearchSection key={latestReport.id} report={latestReport} />;
+                  return <ResearchSection key={latestReport.id} report={latestReport} onItemDelete={handleItemDelete} />;
                 })}
 
               <Divider sx={{ my: 4 }} />

@@ -74,6 +74,16 @@ export const reportsApi = {
     fetchApi<{ success: boolean; deleted: number }>('/api/reports/clear', {
       method: 'DELETE',
     }),
+
+  deleteItem: (itemId: string) =>
+    fetchApi<{ success: boolean }>(`/api/reports/items/${itemId}`, {
+      method: 'DELETE',
+    }),
+
+  deleteReport: (reportId: string) =>
+    fetchApi<{ success: boolean }>(`/api/reports/${reportId}`, {
+      method: 'DELETE',
+    }),
 };
 
 // Audit API

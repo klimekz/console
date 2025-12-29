@@ -110,6 +110,30 @@ reports.post('/run-all', (c) => {
   }, 202);
 });
 
+// Delete a specific item
+reports.delete('/items/:itemId', (c) => {
+  const itemId = c.req.param('itemId');
+  const deleted = db.deleteItem(itemId);
+
+  if (!deleted) {
+    return c.json({ error: 'Item not found' }, 404);
+  }
+
+  return c.json({ success: true });
+});
+
+// Delete a specific report and all its items
+reports.delete('/:reportId', (c) => {
+  const reportId = c.req.param('reportId');
+  const deleted = db.deleteReport(reportId);
+
+  if (!deleted) {
+    return c.json({ error: 'Report not found' }, 404);
+  }
+
+  return c.json({ success: true });
+});
+
 // Delete all reports (for debugging)
 reports.delete('/clear', (c) => {
   const deleted = db.deleteAllReports();

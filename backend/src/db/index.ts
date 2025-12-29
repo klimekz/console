@@ -200,6 +200,19 @@ export function getReportItems(reportId: string): ResearchItem[] {
   }));
 }
 
+export function deleteItem(itemId: string): boolean {
+  const db = getDb();
+  const result = db.run('DELETE FROM research_items WHERE id = ?', [itemId]);
+  return result.changes > 0;
+}
+
+export function deleteReport(reportId: string): boolean {
+  const db = getDb();
+  db.run('DELETE FROM research_items WHERE report_id = ?', [reportId]);
+  const result = db.run('DELETE FROM research_reports WHERE id = ?', [reportId]);
+  return result.changes > 0;
+}
+
 export function getReportById(id: string): ResearchReport | null {
   const db = getDb();
   const report = db.query(`

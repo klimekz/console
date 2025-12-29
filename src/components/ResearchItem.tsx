@@ -4,15 +4,17 @@ import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import CloseIcon from '@mui/icons-material/Close';
 import type { ResearchItem as ResearchItemType } from '../types';
 import { cleanMarkdownLinks } from '../utils/textUtils';
-import { sourcesApi } from '../api/client';
+import { sourcesApi, reportsApi } from '../api/client';
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
 
 interface ResearchItemProps {
   item: ResearchItemType;
   featured?: boolean;
+  onDelete?: (itemId: string) => void;
 }
 
 // Extract domain from URL
@@ -25,9 +27,10 @@ function extractDomain(url: string): string | null {
   }
 }
 
-export function ResearchItem({ item, featured = false }: ResearchItemProps) {
+export function ResearchItem({ item, featured = false, onDelete }: ResearchItemProps) {
   const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const formattedDate = item.publishedAt
     ? new Date(item.publishedAt).toLocaleDateString('en-US', {
@@ -59,6 +62,18 @@ export function ResearchItem({ item, featured = false }: ResearchItemProps) {
       console.error('Failed to submit feedback:', err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await reportsApi.deleteItem(item.id);
+      onDelete?.(item.id);
+    } catch (err) {
+      console.error('Failed to delete item:', err);
+      setDeleting(false);
     }
   };
 
@@ -134,47 +149,64 @@ export function ResearchItem({ item, featured = false }: ResearchItemProps) {
           />
         )}
 
-        {/* Feedback buttons */}
-        {domain && (
-          <Box sx={{ ml: 'auto', display: 'flex', gap: 0 }}>
-            <Tooltip title={`Good source (${domain})`} arrow>
-              <IconButton
-                size="small"
-                onClick={() => handleFeedback('up')}
-                disabled={submitting}
-                sx={{
-                  p: 0.5,
-                  color: feedback === 'up' ? 'success.main' : '#999',
-                  '&:hover': { color: 'success.main' },
-                }}
-              >
-                {feedback === 'up' ? (
-                  <ThumbUpIcon sx={{ fontSize: 14 }} />
-                ) : (
-                  <ThumbUpOutlinedIcon sx={{ fontSize: 14 }} />
-                )}
-              </IconButton>
-            </Tooltip>
-            <Tooltip title={`Poor source (${domain})`} arrow>
-              <IconButton
-                size="small"
-                onClick={() => handleFeedback('down')}
-                disabled={submitting}
-                sx={{
-                  p: 0.5,
-                  color: feedback === 'down' ? 'error.main' : '#999',
-                  '&:hover': { color: 'error.main' },
-                }}
-              >
-                {feedback === 'down' ? (
-                  <ThumbDownIcon sx={{ fontSize: 14 }} />
-                ) : (
-                  <ThumbDownOutlinedIcon sx={{ fontSize: 14 }} />
-                )}
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
+        {/* Feedback and delete buttons */}
+        <Box sx={{ ml: 'auto', display: 'flex', gap: 0 }}>
+          {domain && (
+            <>
+              <Tooltip title={`Good source (${domain})`} arrow>
+                <IconButton
+                  size="small"
+                  onClick={() => handleFeedback('up')}
+                  disabled={submitting}
+                  sx={{
+                    p: 0.5,
+                    color: feedback === 'up' ? 'success.main' : '#999',
+                    '&:hover': { color: 'success.main' },
+                  }}
+                >
+                  {feedback === 'up' ? (
+                    <ThumbUpIcon sx={{ fontSize: 14 }} />
+                  ) : (
+                    <ThumbUpOutlinedIcon sx={{ fontSize: 14 }} />
+                  )}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={`Poor source (${domain})`} arrow>
+                <IconButton
+                  size="small"
+                  onClick={() => handleFeedback('down')}
+                  disabled={submitting}
+                  sx={{
+                    p: 0.5,
+                    color: feedback === 'down' ? 'error.main' : '#999',
+                    '&:hover': { color: 'error.main' },
+                  }}
+                >
+                  {feedback === 'down' ? (
+                    <ThumbDownIcon sx={{ fontSize: 14 }} />
+                  ) : (
+                    <ThumbDownOutlinedIcon sx={{ fontSize: 14 }} />
+                  )}
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+          <Tooltip title="Remove" arrow>
+            <IconButton
+              size="small"
+              onClick={handleDelete}
+              disabled={deleting}
+              sx={{
+                p: 0.5,
+                color: '#bbb',
+                opacity: deleting ? 0.5 : 1,
+                '&:hover': { color: '#666' },
+              }}
+            >
+              <CloseIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       <Typography
