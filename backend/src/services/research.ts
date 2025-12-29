@@ -42,11 +42,21 @@ function buildResearchPrompt(config: ResearchConfig): string {
   const today = getTodayDate();
   const topicsStr = config.topics.join(', ');
 
+  // Get high-trust sources from user feedback
+  const highTrustSources = db.getHighTrustSources(0.6, 10);
+
+  // Combine configured preferred sources with learned high-trust sources (deduplicated)
+  const configuredPreferred = config.preferredSources || [];
+  const allPreferredSources = [
+    ...configuredPreferred,
+    ...highTrustSources.filter(s => !configuredPreferred.includes(s)),
+  ];
+
   // Build source preferences section
   let sourcePreferences = '';
-  if (config.preferredSources && config.preferredSources.length > 0) {
+  if (allPreferredSources.length > 0) {
     sourcePreferences += `\nPREFERRED SOURCES (prioritize content from these domains):
-${config.preferredSources.map(s => `- ${s}`).join('\n')}
+${allPreferredSources.map(s => `- ${s}`).join('\n')}
 `;
   }
   if (config.blockedSources && config.blockedSources.length > 0) {

@@ -471,3 +471,122 @@ export function getRecentCompletedAuditEntries(sinceMinutes: number = 5): AuditE
 
   return rows;
 }
+
+// Source Feedback
+export interface SourceFeedback {
+  sourceDomain: string;
+  itemId?: string;
+  rating: 1 | -1;
+}
+
+export interface Source {
+  id: string;
+  domain: string;
+  name: string | null;
+  category: string | null;
+  trustScore: number;
+  upvotes: number;
+  downvotes: number;
+  lastSeen: string | null;
+  createdAt: string;
+}
+
+export function submitSourceFeedback(feedback: SourceFeedback): void {
+  const db = getDb();
+  const id = randomUUID();
+
+  // Insert feedback
+  db.run(`
+    INSERT INTO source_feedback (id, source_domain, item_id, rating)
+    VALUES (?, ?, ?, ?)
+  `, [id, feedback.sourceDomain, feedback.itemId || null, feedback.rating]);
+
+  // Upsert source entry
+  db.run(`
+    INSERT INTO sources (id, domain, upvotes, downvotes, last_seen)
+    VALUES (?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(domain) DO UPDATE SET
+      upvotes = upvotes + ?,
+      downvotes = downvotes + ?,
+      last_seen = datetime('now')
+  `, [
+    randomUUID(),
+    feedback.sourceDomain,
+    feedback.rating === 1 ? 1 : 0,
+    feedback.rating === -1 ? 1 : 0,
+    feedback.rating === 1 ? 1 : 0,
+    feedback.rating === -1 ? 1 : 0,
+  ]);
+
+  // Recalculate trust score for this source
+  recalculateSourceTrustScore(feedback.sourceDomain);
+}
+
+function recalculateSourceTrustScore(domain: string): void {
+  const db = getDb();
+
+  // Get current votes
+  const source = db.query(`
+    SELECT upvotes, downvotes FROM sources WHERE domain = ?
+  `).get(domain) as { upvotes: number; downvotes: number } | null;
+
+  if (!source) return;
+
+  const total = source.upvotes + source.downvotes;
+  if (total === 0) return;
+
+  // Wilson score interval for confidence-weighted rating
+  // This gives better results than simple ratio for sources with few votes
+  const pos = source.upvotes;
+  const n = total;
+  const z = 1.96; // 95% confidence
+
+  // Lower bound of Wilson score interval
+  const phat = pos / n;
+  const score = (phat + z * z / (2 * n) - z * Math.sqrt((phat * (1 - phat) + z * z / (4 * n)) / n)) / (1 + z * z / n);
+
+  db.run(`
+    UPDATE sources SET trust_score = ? WHERE domain = ?
+  `, [Math.max(0, Math.min(1, score)), domain]);
+}
+
+export function recalculateTrustScores(): void {
+  const db = getDb();
+  const sources = db.query('SELECT domain FROM sources').all() as { domain: string }[];
+
+  for (const source of sources) {
+    recalculateSourceTrustScore(source.domain);
+  }
+}
+
+export function getTopSources(category?: string): Source[] {
+  const db = getDb();
+
+  let query = `
+    SELECT id, domain, name, category, trust_score as trustScore,
+           upvotes, downvotes, last_seen as lastSeen, created_at as createdAt
+    FROM sources
+  `;
+
+  const params: any[] = [];
+  if (category) {
+    query += ' WHERE category = ?';
+    params.push(category);
+  }
+
+  query += ' ORDER BY trust_score DESC LIMIT 50';
+
+  return db.query(query).all(...params) as Source[];
+}
+
+export function getHighTrustSources(minScore: number = 0.6, limit: number = 10): string[] {
+  const db = getDb();
+  const rows = db.query(`
+    SELECT domain FROM sources
+    WHERE trust_score >= ?
+    ORDER BY trust_score DESC
+    LIMIT ?
+  `).all(minScore, limit) as { domain: string }[];
+
+  return rows.map(r => r.domain);
+}

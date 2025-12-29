@@ -4,6 +4,7 @@ import { logger } from 'hono/logger';
 import configsRoutes from './routes/configs';
 import reportsRoutes from './routes/reports';
 import auditRoutes from './routes/audit';
+import sourcesRoutes from './routes/sources';
 import { initializeScheduler, getScheduledConfigs } from './services/scheduler';
 import { getDb } from './db';
 
@@ -30,6 +31,7 @@ app.get('/health', (c) => {
 app.route('/api/configs', configsRoutes);
 app.route('/api/reports', reportsRoutes);
 app.route('/api/audit', auditRoutes);
+app.route('/api/sources', sourcesRoutes);
 
 // Initialize database and scheduler
 console.log('Initializing database...');

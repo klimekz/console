@@ -39,6 +39,8 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
   const [configs, setConfigs] = useState<ResearchConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [newTopic, setNewTopic] = useState<Record<string, string>>({});
+  const [newPreferredSource, setNewPreferredSource] = useState<Record<string, string>>({});
+  const [newBlockedSource, setNewBlockedSource] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open) {
@@ -96,6 +98,58 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
     } catch (err) {
       setError('Failed to remove topic');
+    }
+  };
+
+  const handleAddPreferredSource = async (config: ResearchConfig) => {
+    const source = newPreferredSource[config.id]?.trim().toLowerCase();
+    if (!source) return;
+
+    try {
+      const updated = await configsApi.update(config.id, {
+        preferredSources: [...(config.preferredSources || []), source],
+      });
+      setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
+      setNewPreferredSource((prev) => ({ ...prev, [config.id]: '' }));
+    } catch (err) {
+      setError('Failed to add preferred source');
+    }
+  };
+
+  const handleRemovePreferredSource = async (config: ResearchConfig, sourceToRemove: string) => {
+    try {
+      const updated = await configsApi.update(config.id, {
+        preferredSources: (config.preferredSources || []).filter((s) => s !== sourceToRemove),
+      });
+      setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
+    } catch (err) {
+      setError('Failed to remove preferred source');
+    }
+  };
+
+  const handleAddBlockedSource = async (config: ResearchConfig) => {
+    const source = newBlockedSource[config.id]?.trim().toLowerCase();
+    if (!source) return;
+
+    try {
+      const updated = await configsApi.update(config.id, {
+        blockedSources: [...(config.blockedSources || []), source],
+      });
+      setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
+      setNewBlockedSource((prev) => ({ ...prev, [config.id]: '' }));
+    } catch (err) {
+      setError('Failed to add blocked source');
+    }
+  };
+
+  const handleRemoveBlockedSource = async (config: ResearchConfig, sourceToRemove: string) => {
+    try {
+      const updated = await configsApi.update(config.id, {
+        blockedSources: (config.blockedSources || []).filter((s) => s !== sourceToRemove),
+      });
+      setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
+    } catch (err) {
+      setError('Failed to remove blocked source');
     }
   };
 
@@ -220,6 +274,108 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
                       onClick={() => handleAddTopic(config)}
                       disabled={!newTopic[config.id]?.trim()}
                       color="primary"
+                    >
+                      <AddIcon />
+                    </IconButton>
+                  </Box>
+                </Box>
+
+                {/* Preferred Sources */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'success.main' }}>
+                    Preferred Sources
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1 }}>
+                    Domains to prioritize (e.g., arxiv.org, techcrunch.com)
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                    {(config.preferredSources || []).map((source) => (
+                      <Chip
+                        key={source}
+                        label={source}
+                        onDelete={() => handleRemovePreferredSource(config, source)}
+                        size="small"
+                        color="success"
+                        variant="outlined"
+                      />
+                    ))}
+                    {(!config.preferredSources || config.preferredSources.length === 0) && (
+                      <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                        No preferred sources set
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      size="small"
+                      placeholder="Add domain (e.g., arxiv.org)..."
+                      value={newPreferredSource[config.id] || ''}
+                      onChange={(e) =>
+                        setNewPreferredSource((prev) => ({ ...prev, [config.id]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddPreferredSource(config);
+                        }
+                      }}
+                      sx={{ flex: 1 }}
+                    />
+                    <IconButton
+                      onClick={() => handleAddPreferredSource(config)}
+                      disabled={!newPreferredSource[config.id]?.trim()}
+                      color="success"
+                    >
+                      <AddIcon />
+                    </IconButton>
+                  </Box>
+                </Box>
+
+                {/* Blocked Sources */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'error.main' }}>
+                    Blocked Sources
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1 }}>
+                    Domains to exclude from results
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                    {(config.blockedSources || []).map((source) => (
+                      <Chip
+                        key={source}
+                        label={source}
+                        onDelete={() => handleRemoveBlockedSource(config, source)}
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                      />
+                    ))}
+                    {(!config.blockedSources || config.blockedSources.length === 0) && (
+                      <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                        No blocked sources
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      size="small"
+                      placeholder="Add domain to block..."
+                      value={newBlockedSource[config.id] || ''}
+                      onChange={(e) =>
+                        setNewBlockedSource((prev) => ({ ...prev, [config.id]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddBlockedSource(config);
+                        }
+                      }}
+                      sx={{ flex: 1 }}
+                    />
+                    <IconButton
+                      onClick={() => handleAddBlockedSource(config)}
+                      disabled={!newBlockedSource[config.id]?.trim()}
+                      color="error"
                     >
                       <AddIcon />
                     </IconButton>

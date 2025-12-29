@@ -1,6 +1,12 @@
-import { Box, Typography, Chip, Link } from '@mui/material';
+import { useState } from 'react';
+import { Box, Typography, Chip, Link, IconButton, Tooltip } from '@mui/material';
+import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
+import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
+import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import type { ResearchItem as ResearchItemType } from '../types';
 import { cleanMarkdownLinks } from '../utils/textUtils';
+import { sourcesApi } from '../api/client';
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
 
@@ -9,13 +15,52 @@ interface ResearchItemProps {
   featured?: boolean;
 }
 
+// Extract domain from URL
+function extractDomain(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
 export function ResearchItem({ item, featured = false }: ResearchItemProps) {
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   const formattedDate = item.publishedAt
     ? new Date(item.publishedAt).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
       })
     : null;
+
+  const domain = extractDomain(item.url);
+
+  const handleFeedback = async (rating: 'up' | 'down') => {
+    if (!domain || submitting) return;
+
+    // Toggle off if clicking the same button
+    if (feedback === rating) {
+      setFeedback(null);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await sourcesApi.submitFeedback({
+        sourceDomain: domain,
+        itemId: item.id,
+        rating: rating === 'up' ? 1 : -1,
+      });
+      setFeedback(rating);
+    } catch (err) {
+      console.error('Failed to submit feedback:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <Box
@@ -87,6 +132,48 @@ export function ResearchItem({ item, featured = false }: ResearchItemProps) {
               borderRadius: 0,
             }}
           />
+        )}
+
+        {/* Feedback buttons */}
+        {domain && (
+          <Box sx={{ ml: 'auto', display: 'flex', gap: 0 }}>
+            <Tooltip title={`Good source (${domain})`} arrow>
+              <IconButton
+                size="small"
+                onClick={() => handleFeedback('up')}
+                disabled={submitting}
+                sx={{
+                  p: 0.5,
+                  color: feedback === 'up' ? 'success.main' : '#999',
+                  '&:hover': { color: 'success.main' },
+                }}
+              >
+                {feedback === 'up' ? (
+                  <ThumbUpIcon sx={{ fontSize: 14 }} />
+                ) : (
+                  <ThumbUpOutlinedIcon sx={{ fontSize: 14 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={`Poor source (${domain})`} arrow>
+              <IconButton
+                size="small"
+                onClick={() => handleFeedback('down')}
+                disabled={submitting}
+                sx={{
+                  p: 0.5,
+                  color: feedback === 'down' ? 'error.main' : '#999',
+                  '&:hover': { color: 'error.main' },
+                }}
+              >
+                {feedback === 'down' ? (
+                  <ThumbDownIcon sx={{ fontSize: 14 }} />
+                ) : (
+                  <ThumbDownOutlinedIcon sx={{ fontSize: 14 }} />
+                )}
+              </IconButton>
+            </Tooltip>
+          </Box>
         )}
       </Box>
 

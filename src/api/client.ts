@@ -87,3 +87,17 @@ export const auditApi = {
       `/api/audit?limit=${limit}`
     ),
 };
+
+// Sources API (feedback and curation)
+export const sourcesApi = {
+  submitFeedback: (feedback: { sourceDomain: string; itemId: string; rating: 1 | -1 }) =>
+    fetchApi<{ success: boolean }>('/api/sources/feedback', {
+      method: 'POST',
+      body: JSON.stringify(feedback),
+    }),
+
+  getTopSources: (category?: string) =>
+    fetchApi<Array<{ domain: string; name: string; trustScore: number; upvotes: number; downvotes: number }>>(
+      `/api/sources${category ? `?category=${category}` : ''}`
+    ),
+};
