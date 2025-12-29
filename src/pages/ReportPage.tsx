@@ -30,8 +30,6 @@ export function ReportPage() {
 
   // Audit status from backend
   const [runningEntries, setRunningEntries] = useState<AuditEntry[]>([]);
-  const [recentFailed, setRecentFailed] = useState<AuditEntry[]>([]);
-  const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
   const previousRunningRef = useRef<string[]>([]);
 
   // Smart polling: only poll when research is running or recently triggered
@@ -66,12 +64,6 @@ export function ReportPage() {
       previousRunningRef.current = currentIds;
       setRunningEntries(status.running);
 
-      // Filter out dismissed errors
-      const failedNotDismissed = status.recentCompleted.filter(
-        (e) => e.status === 'failed' && !dismissedErrors.has(e.id)
-      );
-      setRecentFailed(failedNotDismissed);
-
       // Stop polling if nothing is running and grace period expired
       if (status.running.length === 0 && !pollGraceTimeoutRef.current) {
         setIsPolling(false);
@@ -79,7 +71,7 @@ export function ReportPage() {
     } catch (err) {
       console.error('Failed to check audit status:', err);
     }
-  }, [loadTodayReports, dismissedErrors]);
+  }, [loadTodayReports]);
 
   // Start polling with grace period (called when research is triggered)
   const startPolling = useCallback(() => {
@@ -147,10 +139,6 @@ export function ReportPage() {
     }
   };
 
-  const handleDismissError = (id: string) => {
-    setDismissedErrors((prev) => new Set([...prev, id]));
-  };
-
   const handleItemDelete = (itemId: string) => {
     // Remove the item from local state
     setTodayData((prev) => {
@@ -198,11 +186,7 @@ export function ReportPage() {
             loading={refreshing}
           />
 
-          <ResearchProgress
-            runningEntries={runningEntries}
-            recentFailed={recentFailed}
-            onDismissError={handleDismissError}
-          />
+          <ResearchProgress runningEntries={runningEntries} />
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>

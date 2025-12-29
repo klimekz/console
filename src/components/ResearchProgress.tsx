@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, LinearProgress, Alert } from '@mui/material';
+import { Box, Typography, LinearProgress } from '@mui/material';
 import type { AuditEntry } from '../types';
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
@@ -7,11 +7,9 @@ const MONO_FONT = '"SF Mono", "Fira Code", "Monaco", monospace';
 
 interface ResearchProgressProps {
   runningEntries: AuditEntry[];
-  recentFailed?: AuditEntry[];
-  onDismissError?: (id: string) => void;
 }
 
-export function ResearchProgress({ runningEntries, recentFailed, onDismissError }: ResearchProgressProps) {
+export function ResearchProgress({ runningEntries }: ResearchProgressProps) {
   const [elapsed, setElapsed] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -42,30 +40,12 @@ export function ResearchProgress({ runningEntries, recentFailed, onDismissError 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (runningEntries.length === 0 && (!recentFailed || recentFailed.length === 0)) {
+  if (runningEntries.length === 0) {
     return null;
   }
 
   return (
     <Box sx={{ mb: 4 }}>
-      {/* Show errors from recent failures */}
-      {recentFailed?.map((entry) => (
-        <Alert
-          key={entry.id}
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={onDismissError ? () => onDismissError(entry.id) : undefined}
-        >
-          <strong>{entry.configName || 'Research'}</strong> failed: {entry.errorMessage || 'Unknown error'}
-          {entry.runtimeMs > 0 && (
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-              Failed after {(entry.runtimeMs / 1000).toFixed(1)}s
-            </Typography>
-          )}
-        </Alert>
-      ))}
-
-      {/* Show running research */}
       {runningEntries.length > 0 && (
         <Box
           sx={{
