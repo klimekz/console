@@ -11,8 +11,8 @@ const openai = new OpenAI({
 const DEEP_RESEARCH_MODEL = 'o4-mini-deep-research-2025-06-26';
 
 // Retry configuration for rate limits
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 60_000; // Start with 60 seconds for rate limits
+const MAX_RETRIES = 1; // Only 1 retry (2 attempts total)
+const INITIAL_RETRY_DELAY_MS = 5_000; // 5 seconds between retries
 
 // Pricing for deep research (per 1M tokens and per web search call)
 const INPUT_TOKEN_COST_PER_MILLION = 110; // $1.10 per 1M input tokens
