@@ -46,19 +46,21 @@ export function DaySection({ day, onItemDelete }: DaySectionProps) {
   }
 
   return (
-    <Box sx={{ mb: 6 }}>
+    <Box sx={{ mb: 5 }}>
       <Typography
         sx={{
-          fontFamily: '"Newsreader", Georgia, serif',
-          fontSize: { xs: '1.5rem', md: '1.75rem' },
-          fontWeight: 500,
-          color: '#121212',
-          mb: 0.5,
+          fontFamily: SYSTEM_FONT,
+          fontSize: '0.8rem',
+          fontWeight: 600,
+          color: '#333',
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          mb: 1,
         }}
       >
         {formattedDate}
       </Typography>
-      <Divider sx={{ mb: 3, borderColor: '#121212', borderWidth: 2 }} />
+      <Divider sx={{ mb: 3, borderColor: '#333', borderWidth: 1 }} />
 
       {allReports.map((report) => (
         <ResearchSection

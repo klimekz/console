@@ -80,27 +80,15 @@ export function ReportHeader({ onSettingsClick, onRefresh, onClear, loading }: R
       <Typography
         variant="h1"
         sx={{
-          fontFamily: '"Newsreader", Georgia, serif',
-          fontSize: { xs: '2.25rem', md: '3rem' },
-          fontWeight: 400,
-          textAlign: 'center',
-          letterSpacing: '-0.02em',
-          mb: 0.5,
-        }}
-      >
-        Daily Report
-      </Typography>
-
-      <Typography
-        sx={{
-          textAlign: 'center',
-          color: '#666',
           fontFamily: SYSTEM_FONT,
-          fontSize: '0.875rem',
+          fontSize: { xs: '1.5rem', md: '1.75rem' },
+          fontWeight: 600,
+          textAlign: 'center',
+          letterSpacing: '-0.01em',
           mb: 3,
         }}
       >
-        AI-curated intelligence brief
+        Daily Report
       </Typography>
 
       <Divider sx={{ borderColor: '#000' }} />
