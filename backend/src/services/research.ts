@@ -4,21 +4,19 @@ import * as db from '../db';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  timeout: 10 * 60 * 1000, // 10 minutes - deep research takes a while
+  timeout: 5 * 60 * 1000, // 5 minutes timeout
 });
 
-// Deep research model - uses web_search_preview tool
-const DEEP_RESEARCH_MODEL = 'o4-mini-deep-research-2025-06-26';
+// Use GPT-4o for research tasks - reliable and capable
+const RESEARCH_MODEL = 'gpt-4o';
 
 // Retry configuration for rate limits
 const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 60_000; // Start with 60 seconds for rate limits
+const INITIAL_RETRY_DELAY_MS = 5_000; // Start with 5 seconds for rate limits
 
-// Pricing (as of Dec 2025): $0.01 per web search call
-const WEB_SEARCH_COST_CENTS = 1;
-// Token pricing for o4-mini-deep-research (estimated, per 1M tokens)
-const INPUT_TOKEN_COST_PER_MILLION = 110; // $1.10 per 1M input tokens
-const OUTPUT_TOKEN_COST_PER_MILLION = 440; // $4.40 per 1M output tokens
+// Token pricing for GPT-4o (per 1M tokens, as of Dec 2024)
+const INPUT_TOKEN_COST_PER_MILLION = 250; // $2.50 per 1M input tokens
+const OUTPUT_TOKEN_COST_PER_MILLION = 1000; // $10.00 per 1M output tokens
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -76,11 +74,10 @@ Rules:
 - Only return valid JSON`;
 }
 
-function calculateCost(inputTokens: number, outputTokens: number, webSearchCalls: number): number {
+function calculateCost(inputTokens: number, outputTokens: number): number {
   const inputCost = (inputTokens / 1_000_000) * INPUT_TOKEN_COST_PER_MILLION * 100; // in cents
   const outputCost = (outputTokens / 1_000_000) * OUTPUT_TOKEN_COST_PER_MILLION * 100; // in cents
-  const searchCost = webSearchCalls * WEB_SEARCH_COST_CENTS;
-  return inputCost + outputCost + searchCost;
+  return inputCost + outputCost;
 }
 
 export async function runDeepResearch(config: ResearchConfig, auditId: string): Promise<DeepResearchResponse> {
@@ -96,85 +93,77 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
         await sleep(delayMs);
       }
 
-      // Use the responses API with deep research model and web search tool
-      const response = await openai.responses.create({
-        model: DEEP_RESEARCH_MODEL,
-        input: [
+      // Use the chat completions API with JSON response format
+      const response = await openai.chat.completions.create({
+        model: RESEARCH_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a research analyst assistant. Always respond with valid JSON matching the requested format. Be thorough and provide accurate, relevant information.',
+          },
           {
             role: 'user',
-            content: [{ type: 'input_text', text: prompt }],
+            content: prompt,
           },
         ],
-        tools: [{ type: 'web_search_preview' }],
-      } as any); // Type assertion needed as SDK types may not be fully updated
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+        max_tokens: 4096,
+      });
 
       const runtimeMs = Date.now() - startTime;
 
-    // Extract usage info
-    const usage = (response as any).usage || {};
-    const inputTokens = usage.input_tokens || 0;
-    const outputTokens = usage.output_tokens || 0;
+      // Extract usage info from the standard response format
+      const usage = response.usage;
+      const inputTokens = usage?.prompt_tokens || 0;
+      const outputTokens = usage?.completion_tokens || 0;
 
-    // Count web search calls from the response
-    let webSearchCalls = 0;
-    const outputItems = (response as any).output || [];
-    for (const item of outputItems) {
-      if (item.type === 'web_search_call') {
-        webSearchCalls++;
+      // Calculate cost
+      const estimatedCostCents = calculateCost(inputTokens, outputTokens);
+
+      // Extract the text output from the chat completion response
+      const outputText = response.choices[0]?.message?.content;
+
+      if (!outputText) {
+        console.error('No output text found in response:', JSON.stringify(response, null, 2));
+        db.updateAuditEntry(auditId, {
+          inputTokens,
+          outputTokens,
+          webSearchCalls: 0,
+          estimatedCostCents,
+          runtimeMs,
+          status: 'failed',
+          errorMessage: 'No output text in response',
+        });
+        return { summary: 'No response from research', items: [] };
       }
-    }
 
-    // Calculate cost
-    const estimatedCostCents = calculateCost(inputTokens, outputTokens, webSearchCalls);
-
-    // Update audit entry with success metrics
-    db.updateAuditEntry(auditId, {
-      inputTokens,
-      outputTokens,
-      webSearchCalls,
-      estimatedCostCents,
-      runtimeMs,
-      status: 'completed',
-    });
-
-    // Extract the text output
-    let outputText = '';
-    for (const item of outputItems) {
-      if (item.type === 'message' && item.content) {
-        for (const content of item.content) {
-          if (content.type === 'output_text') {
-            outputText = content.text;
-            break;
-          }
-        }
+      // Parse JSON from the response
+      // Try to extract JSON from markdown code blocks if present
+      let jsonStr = outputText;
+      const jsonMatch = outputText.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
       }
-    }
 
-    // Fallback: try direct output_text property
-    if (!outputText && (response as any).output_text) {
-      outputText = (response as any).output_text;
-    }
+      const parsed = JSON.parse(jsonStr) as DeepResearchResponse;
 
-    if (!outputText) {
-      console.error('No output text found in response:', JSON.stringify(response, null, 2));
-      return { summary: 'No response from deep research', items: [] };
-    }
+      // Update audit entry with success metrics
+      db.updateAuditEntry(auditId, {
+        inputTokens,
+        outputTokens,
+        webSearchCalls: 0,
+        estimatedCostCents,
+        runtimeMs,
+        status: 'completed',
+      });
 
-    // Parse JSON from the response
-    // Try to extract JSON from markdown code blocks if present
-    let jsonStr = outputText;
-    const jsonMatch = outputText.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1].trim();
-    }
+      console.log(`Research completed in ${(runtimeMs / 1000).toFixed(1)}s - ${inputTokens}/${outputTokens} tokens, $${(estimatedCostCents / 100).toFixed(4)}`);
 
-    const parsed = JSON.parse(jsonStr) as DeepResearchResponse;
-
-    console.log(`Deep research completed in ${(runtimeMs / 1000).toFixed(1)}s - ${webSearchCalls} web searches, ${inputTokens}/${outputTokens} tokens, $${(estimatedCostCents / 100).toFixed(4)}`);
-
-    return parsed;
+      return parsed;
     } catch (error) {
       lastError = error as Error;
+      console.error(`Research attempt ${attempt + 1} failed:`, lastError.message);
 
       // If it's a rate limit error and we have retries left, continue
       if (isRateLimitError(error) && attempt < MAX_RETRIES) {
@@ -197,7 +186,7 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
     errorMessage,
   });
 
-  console.error('Deep research failed after retries:', lastError);
+  console.error('Research failed after retries:', lastError);
   return { summary: 'Research failed: ' + errorMessage, items: [] };
 }
 
@@ -215,7 +204,7 @@ export async function executeResearchConfig(configId: string): Promise<db.Resear
     eventType: 'research_run',
     configId: config.id,
     configName: config.name,
-    model: DEEP_RESEARCH_MODEL,
+    model: RESEARCH_MODEL,
   });
 
   const research = await runDeepResearch(config, auditId);
