@@ -9,10 +9,11 @@ const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvet
 interface ResearchSectionProps {
   report: ResearchReport;
   showSummary?: boolean;
+  showDate?: boolean;
   onItemDelete?: (itemId: string) => void;
 }
 
-export function ResearchSection({ report, showSummary = true, onItemDelete }: ResearchSectionProps) {
+export function ResearchSection({ report, showSummary = true, showDate = false, onItemDelete }: ResearchSectionProps) {
   const category = report.category as CategoryType;
   const label = CATEGORY_LABELS[category] || report.configName;
 
@@ -26,7 +27,7 @@ export function ResearchSection({ report, showSummary = true, onItemDelete }: Re
   });
 
   return (
-    <Box sx={{ mb: 5 }}>
+    <Box sx={{ mb: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
         <Typography
           sx={{
@@ -40,16 +41,20 @@ export function ResearchSection({ report, showSummary = true, onItemDelete }: Re
         >
           {label}
         </Typography>
-        <Typography sx={{ color: '#999', fontSize: '0.7rem' }}>·</Typography>
-        <Typography
-          sx={{
-            fontFamily: SYSTEM_FONT,
-            fontSize: '0.7rem',
-            color: '#999',
-          }}
-        >
-          {reportDate}
-        </Typography>
+        {showDate && (
+          <>
+            <Typography sx={{ color: '#999', fontSize: '0.7rem' }}>·</Typography>
+            <Typography
+              sx={{
+                fontFamily: SYSTEM_FONT,
+                fontSize: '0.7rem',
+                color: '#999',
+              }}
+            >
+              {reportDate}
+            </Typography>
+          </>
+        )}
       </Box>
 
       <Divider sx={{ mb: 2.5, borderColor: '#e0e0e0' }} />

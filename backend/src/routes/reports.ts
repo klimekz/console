@@ -39,6 +39,15 @@ reports.get('/history', (c) => {
   return c.json(history);
 });
 
+// Get reports grouped by day (newspaper-style view)
+reports.get('/by-day', (c) => {
+  const days = parseInt(c.req.query('days') || '3', 10);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+
+  const result = db.getReportsByDays(days, offset);
+  return c.json(result);
+});
+
 // Get all reports (paginated)
 reports.get('/', (c) => {
   const page = parseInt(c.req.query('page') || '1', 10);

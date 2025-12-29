@@ -4,26 +4,31 @@ import {
   Container,
   CircularProgress,
   Alert,
-  Divider,
+  Button,
 } from '@mui/material';
 import {
   ReportHeader,
-  ResearchSection,
   ResearchProgress,
-  HistoricalReports,
+  DaySection,
   SettingsDialog,
 } from '../components';
-import type { ResearchReport, TodayResponse, AuditEntry } from '../types';
+import type { DayReports, AuditEntry } from '../types';
 import { reportsApi, auditApi } from '../api/client';
+
+const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
 
 // Polling interval when research is running
 const POLL_INTERVAL_MS = 3000;
 // Grace period to poll after triggering research (before backend shows running status)
 const POLL_GRACE_PERIOD_MS = 30000;
+// Number of days to load at a time
+const DAYS_PER_PAGE = 3;
 
 export function ReportPage() {
-  const [todayData, setTodayData] = useState<TodayResponse | null>(null);
+  const [days, setDays] = useState<DayReports[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,10 +41,15 @@ export function ReportPage() {
   const [isPolling, setIsPolling] = useState(false);
   const pollGraceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadTodayReports = useCallback(async () => {
+  const loadReports = useCallback(async (offset = 0, append = false) => {
     try {
-      const data = await reportsApi.getToday();
-      setTodayData(data);
+      const data = await reportsApi.getByDay(DAYS_PER_PAGE, offset);
+      if (append) {
+        setDays((prev) => [...prev, ...data.data]);
+      } else {
+        setDays(data.data);
+      }
+      setHasMore(data.hasMore);
       setError(null);
     } catch (err) {
       console.error('Failed to load reports:', err);
@@ -58,7 +68,7 @@ export function ReportPage() {
       const justCompleted = previousIds.filter((id) => !currentIds.includes(id));
       if (justCompleted.length > 0) {
         // Refresh reports when research completes
-        await loadTodayReports();
+        await loadReports();
       }
 
       previousRunningRef.current = currentIds;
@@ -71,7 +81,7 @@ export function ReportPage() {
     } catch (err) {
       console.error('Failed to check audit status:', err);
     }
-  }, [loadTodayReports]);
+  }, [loadReports]);
 
   // Start polling with grace period (called when research is triggered)
   const startPolling = useCallback(() => {
@@ -89,15 +99,15 @@ export function ReportPage() {
     }, POLL_GRACE_PERIOD_MS);
   }, []);
 
-  // Initial load - check status once
+  // Initial load
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      await Promise.all([loadTodayReports(), checkAuditStatus()]);
+      await Promise.all([loadReports(), checkAuditStatus()]);
       setLoading(false);
     };
     fetchData();
-  }, [loadTodayReports, checkAuditStatus]);
+  }, [loadReports, checkAuditStatus]);
 
   // Smart polling - only poll when isPolling is true
   useEffect(() => {
@@ -125,7 +135,7 @@ export function ReportPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadTodayReports();
+    await loadReports();
     setRefreshing(false);
   };
 
@@ -133,41 +143,30 @@ export function ReportPage() {
     if (!confirm('Delete all reports?')) return;
     try {
       await reportsApi.clearAll();
-      await loadTodayReports();
+      await loadReports();
     } catch (err) {
       console.error('Failed to clear reports:', err);
     }
   };
 
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    await loadReports(days.length, true);
+    setLoadingMore(false);
+  };
+
   const handleItemDelete = (itemId: string) => {
     // Remove the item from local state
-    setTodayData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        data: prev.data.map((report) => ({
+    setDays((prev) =>
+      prev.map((day) => ({
+        ...day,
+        reports: day.reports.map((report) => ({
           ...report,
           items: report.items.filter((item) => item.id !== itemId),
         })),
-      };
-    });
+      }))
+    );
   };
-
-  // Group reports by category for display order
-  const groupedReports = todayData?.data.reduce(
-    (acc, report) => {
-      const category = report.category;
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      acc[category].push(report);
-      return acc;
-    },
-    {} as Record<string, ResearchReport[]>
-  );
-
-  // Display order for categories
-  const categoryOrder = ['papers', 'news', 'markets'];
 
   return (
     <>
@@ -196,7 +195,7 @@ export function ReportPage() {
             <Alert severity="error" sx={{ mb: 4 }}>
               {error}
             </Alert>
-          ) : todayData?.data.length === 0 ? (
+          ) : days.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>
               <Alert severity="info" sx={{ maxWidth: 500, mx: 'auto' }}>
                 No research reports yet. Click the settings icon to configure your research topics
@@ -205,37 +204,31 @@ export function ReportPage() {
             </Box>
           ) : (
             <>
-              {todayData?.isLatest && todayData.message && (
-                <Alert severity="info" sx={{ mb: 4 }}>
-                  {todayData.message}
-                </Alert>
+              {days.map((day) => (
+                <DaySection key={day.date} day={day} onItemDelete={handleItemDelete} />
+              ))}
+
+              {hasMore && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    sx={{
+                      fontFamily: SYSTEM_FONT,
+                      textTransform: 'none',
+                      borderColor: '#ccc',
+                      color: '#666',
+                      '&:hover': {
+                        borderColor: '#999',
+                        bgcolor: 'transparent',
+                      },
+                    }}
+                  >
+                    {loadingMore ? 'Loading...' : 'Load earlier days'}
+                  </Button>
+                </Box>
               )}
-
-              {categoryOrder.map((category) => {
-                const reports = groupedReports?.[category];
-                if (!reports || reports.length === 0) return null;
-
-                // Take the most recent report for each category
-                const latestReport = reports.sort(
-                  (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
-                )[0];
-
-                return <ResearchSection key={category} report={latestReport} onItemDelete={handleItemDelete} />;
-              })}
-
-              {/* Also show any other categories not in the predefined order */}
-              {Object.entries(groupedReports || {})
-                .filter(([category]) => !categoryOrder.includes(category))
-                .map(([, reports]) => {
-                  const latestReport = reports.sort(
-                    (a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()
-                  )[0];
-                  return <ResearchSection key={latestReport.id} report={latestReport} onItemDelete={handleItemDelete} />;
-                })}
-
-              <Divider sx={{ my: 4 }} />
-
-              <HistoricalReports />
             </>
           )}
         </Container>

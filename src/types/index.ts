@@ -50,6 +50,16 @@ export interface TodayResponse {
   message?: string;
 }
 
+export interface DayReports {
+  date: string; // YYYY-MM-DD
+  reports: ResearchReport[];
+}
+
+export interface DayReportsResponse {
+  data: DayReports[];
+  hasMore: boolean;
+}
+
 export type CategoryType = 'papers' | 'news' | 'markets';
 
 export const CATEGORY_LABELS: Record<CategoryType, string> = {

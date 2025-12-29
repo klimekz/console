@@ -325,6 +325,55 @@ export function deleteAllReports(): number {
   return result.changes;
 }
 
+// Get reports grouped by date for the newspaper-style view
+export interface DayReports {
+  date: string; // YYYY-MM-DD
+  reports: ResearchReport[];
+}
+
+export function getReportsByDays(days: number = 3, offset: number = 0): { data: DayReports[]; hasMore: boolean } {
+  const db = getDb();
+
+  // Get distinct dates with reports, ordered by most recent
+  const dates = db.query(`
+    SELECT DISTINCT date(generated_at) as date
+    FROM research_reports
+    ORDER BY date DESC
+    LIMIT ? OFFSET ?
+  `).all(days + 1, offset) as { date: string }[];
+
+  const hasMore = dates.length > days;
+  const datesToFetch = dates.slice(0, days);
+
+  const result: DayReports[] = [];
+
+  for (const { date } of datesToFetch) {
+    const reports = db.query(`
+      SELECT id, config_id as configId, config_name as configName, category,
+             generated_at as generatedAt, summary
+      FROM research_reports
+      WHERE date(generated_at) = date(?)
+      ORDER BY
+        CASE category
+          WHEN 'papers' THEN 1
+          WHEN 'news' THEN 2
+          WHEN 'markets' THEN 3
+          ELSE 4
+        END,
+        generated_at DESC
+    `).all(date) as any[];
+
+    const reportsWithItems = reports.map(report => ({
+      ...report,
+      items: getReportItems(report.id),
+    }));
+
+    result.push({ date, reports: reportsWithItems });
+  }
+
+  return { data: result, hasMore };
+}
+
 // Audit Log
 export interface AuditEntry {
   id: string;

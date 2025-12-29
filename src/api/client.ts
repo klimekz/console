@@ -1,4 +1,4 @@
-import type { ResearchConfig, ResearchReport, PaginatedResponse, TodayResponse, AuditEntry, AuditStatus } from '../types';
+import type { ResearchConfig, ResearchReport, PaginatedResponse, TodayResponse, DayReportsResponse, AuditEntry, AuditStatus } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -51,6 +51,9 @@ export const reportsApi = {
 
   getHistory: (page = 1, pageSize = 10) =>
     fetchApi<PaginatedResponse<ResearchReport>>(`/api/reports/history?page=${page}&pageSize=${pageSize}`),
+
+  getByDay: (days = 3, offset = 0) =>
+    fetchApi<DayReportsResponse>(`/api/reports/by-day?days=${days}&offset=${offset}`),
 
   getAll: (page = 1, pageSize = 10, category?: string) => {
     let url = `/api/reports?page=${page}&pageSize=${pageSize}`;
