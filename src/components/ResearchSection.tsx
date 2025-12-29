@@ -20,6 +20,11 @@ export function ResearchSection({ report, showSummary = true, onItemDelete }: Re
   const featuredItem = sortedItems[0];
   const otherItems = sortedItems.slice(1);
 
+  const reportDate = new Date(report.generatedAt).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+
   return (
     <Box sx={{ mb: 5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
@@ -34,6 +39,16 @@ export function ResearchSection({ report, showSummary = true, onItemDelete }: Re
           }}
         >
           {label}
+        </Typography>
+        <Typography sx={{ color: '#999', fontSize: '0.7rem' }}>·</Typography>
+        <Typography
+          sx={{
+            fontFamily: SYSTEM_FONT,
+            fontSize: '0.7rem',
+            color: '#999',
+          }}
+        >
+          {reportDate}
         </Typography>
       </Box>
 
