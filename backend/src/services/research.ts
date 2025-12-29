@@ -4,19 +4,24 @@ import * as db from '../db';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  timeout: 5 * 60 * 1000, // 5 minutes timeout
+  timeout: 15 * 60 * 1000, // 15 minutes - deep research can take a while
 });
 
-// Use GPT-4o for research tasks - reliable and capable
-const RESEARCH_MODEL = 'gpt-4o';
+// Deep research model with web search capabilities
+const DEEP_RESEARCH_MODEL = 'o4-mini-deep-research-2025-06-26';
 
 // Retry configuration for rate limits
 const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 5_000; // Start with 5 seconds for rate limits
+const INITIAL_RETRY_DELAY_MS = 60_000; // Start with 60 seconds for rate limits
 
-// Token pricing for GPT-4o (per 1M tokens, as of Dec 2024)
-const INPUT_TOKEN_COST_PER_MILLION = 250; // $2.50 per 1M input tokens
-const OUTPUT_TOKEN_COST_PER_MILLION = 1000; // $10.00 per 1M output tokens
+// Pricing for deep research (per 1M tokens and per web search call)
+const INPUT_TOKEN_COST_PER_MILLION = 110; // $1.10 per 1M input tokens
+const OUTPUT_TOKEN_COST_PER_MILLION = 440; // $4.40 per 1M output tokens
+const WEB_SEARCH_COST_CENTS = 1; // $0.01 per web search call
+
+// Polling configuration for background tasks
+const POLL_INTERVAL_MS = 5_000; // Poll every 5 seconds
+const MAX_POLL_TIME_MS = 10 * 60 * 1000; // Max 10 minutes
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -74,10 +79,30 @@ Rules:
 - Only return valid JSON`;
 }
 
-function calculateCost(inputTokens: number, outputTokens: number): number {
+function calculateCost(inputTokens: number, outputTokens: number, webSearchCalls: number): number {
   const inputCost = (inputTokens / 1_000_000) * INPUT_TOKEN_COST_PER_MILLION * 100; // in cents
   const outputCost = (outputTokens / 1_000_000) * OUTPUT_TOKEN_COST_PER_MILLION * 100; // in cents
-  return inputCost + outputCost;
+  const searchCost = webSearchCalls * WEB_SEARCH_COST_CENTS;
+  return inputCost + outputCost + searchCost;
+}
+
+async function pollForCompletion(responseId: string): Promise<any> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < MAX_POLL_TIME_MS) {
+    const response = await (openai as any).responses.retrieve(responseId);
+
+    if (response.status === 'completed') {
+      return response;
+    } else if (response.status === 'failed' || response.status === 'cancelled') {
+      throw new Error(`Deep research ${response.status}: ${response.error?.message || 'Unknown error'}`);
+    }
+
+    // Still in progress, wait and poll again
+    await sleep(POLL_INTERVAL_MS);
+  }
+
+  throw new Error('Deep research timed out after 10 minutes');
 }
 
 export async function runDeepResearch(config: ResearchConfig, auditId: string): Promise<DeepResearchResponse> {
@@ -93,49 +118,80 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
         await sleep(delayMs);
       }
 
-      // Use the chat completions API with JSON response format
-      const response = await openai.chat.completions.create({
-        model: RESEARCH_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a research analyst assistant. Always respond with valid JSON matching the requested format. Be thorough and provide accurate, relevant information.',
-          },
+      console.log(`Starting deep research with ${DEEP_RESEARCH_MODEL}...`);
+
+      // Use the Responses API with deep research model and web search tool
+      // background: true allows long-running tasks without connection timeout issues
+      const initialResponse = await (openai as any).responses.create({
+        model: DEEP_RESEARCH_MODEL,
+        input: [
           {
             role: 'user',
-            content: prompt,
+            content: [{ type: 'input_text', text: prompt }],
           },
         ],
-        response_format: { type: 'json_object' },
-        temperature: 0.7,
-        max_tokens: 4096,
+        tools: [{ type: 'web_search_preview' }],
+        background: true, // Run in background mode for long tasks
       });
+
+      console.log(`Deep research started, response ID: ${initialResponse.id}, status: ${initialResponse.status}`);
+
+      // Poll for completion if running in background
+      let response = initialResponse;
+      if (initialResponse.status !== 'completed') {
+        console.log('Polling for completion...');
+        response = await pollForCompletion(initialResponse.id);
+      }
 
       const runtimeMs = Date.now() - startTime;
 
-      // Extract usage info from the standard response format
-      const usage = response.usage;
-      const inputTokens = usage?.prompt_tokens || 0;
-      const outputTokens = usage?.completion_tokens || 0;
+      // Extract usage info
+      const usage = response.usage || {};
+      const inputTokens = usage.input_tokens || 0;
+      const outputTokens = usage.output_tokens || 0;
+
+      // Count web search calls from the response
+      let webSearchCalls = 0;
+      const outputItems = response.output || [];
+      for (const item of outputItems) {
+        if (item.type === 'web_search_call') {
+          webSearchCalls++;
+        }
+      }
 
       // Calculate cost
-      const estimatedCostCents = calculateCost(inputTokens, outputTokens);
+      const estimatedCostCents = calculateCost(inputTokens, outputTokens, webSearchCalls);
 
-      // Extract the text output from the chat completion response
-      const outputText = response.choices[0]?.message?.content;
+      // Extract the text output
+      let outputText = '';
+      for (const item of outputItems) {
+        if (item.type === 'message' && item.content) {
+          for (const content of item.content) {
+            if (content.type === 'output_text') {
+              outputText = content.text;
+              break;
+            }
+          }
+        }
+      }
+
+      // Fallback: try direct output_text property
+      if (!outputText && response.output_text) {
+        outputText = response.output_text;
+      }
 
       if (!outputText) {
         console.error('No output text found in response:', JSON.stringify(response, null, 2));
         db.updateAuditEntry(auditId, {
           inputTokens,
           outputTokens,
-          webSearchCalls: 0,
+          webSearchCalls,
           estimatedCostCents,
           runtimeMs,
           status: 'failed',
           errorMessage: 'No output text in response',
         });
-        return { summary: 'No response from research', items: [] };
+        return { summary: 'No response from deep research', items: [] };
       }
 
       // Parse JSON from the response
@@ -152,18 +208,18 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
       db.updateAuditEntry(auditId, {
         inputTokens,
         outputTokens,
-        webSearchCalls: 0,
+        webSearchCalls,
         estimatedCostCents,
         runtimeMs,
         status: 'completed',
       });
 
-      console.log(`Research completed in ${(runtimeMs / 1000).toFixed(1)}s - ${inputTokens}/${outputTokens} tokens, $${(estimatedCostCents / 100).toFixed(4)}`);
+      console.log(`Deep research completed in ${(runtimeMs / 1000).toFixed(1)}s - ${webSearchCalls} web searches, ${inputTokens}/${outputTokens} tokens, $${(estimatedCostCents / 100).toFixed(4)}`);
 
       return parsed;
     } catch (error) {
       lastError = error as Error;
-      console.error(`Research attempt ${attempt + 1} failed:`, lastError.message);
+      console.error(`Deep research attempt ${attempt + 1} failed:`, lastError.message);
 
       // If it's a rate limit error and we have retries left, continue
       if (isRateLimitError(error) && attempt < MAX_RETRIES) {
@@ -186,7 +242,7 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
     errorMessage,
   });
 
-  console.error('Research failed after retries:', lastError);
+  console.error('Deep research failed after retries:', lastError);
   return { summary: 'Research failed: ' + errorMessage, items: [] };
 }
 
@@ -204,7 +260,7 @@ export async function executeResearchConfig(configId: string): Promise<db.Resear
     eventType: 'research_run',
     configId: config.id,
     configName: config.name,
-    model: RESEARCH_MODEL,
+    model: DEEP_RESEARCH_MODEL,
   });
 
   const research = await runDeepResearch(config, auditId);
