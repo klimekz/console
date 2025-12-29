@@ -2,6 +2,7 @@ import { Box, Typography, Divider, Grid } from '@mui/material';
 import type { ResearchReport } from '../types';
 import { ResearchItem } from './ResearchItem';
 import { CATEGORY_LABELS, type CategoryType } from '../types';
+import { cleanMarkdownLinks } from '../utils/textUtils';
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
 
@@ -49,7 +50,7 @@ export function ResearchSection({ report, showSummary = true }: ResearchSectionP
             borderLeft: '2px solid #121212',
           }}
         >
-          {report.summary}
+          {cleanMarkdownLinks(report.summary)}
         </Typography>
       )}
 

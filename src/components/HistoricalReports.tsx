@@ -17,6 +17,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import type { ResearchReport, PaginatedResponse } from '../types';
 import { CATEGORY_LABELS, type CategoryType } from '../types';
 import { reportsApi } from '../api/client';
+import { cleanMarkdownLinks } from '../utils/textUtils';
 
 export function HistoricalReports() {
   const [reports, setReports] = useState<PaginatedResponse<ResearchReport> | null>(null);
@@ -152,7 +153,7 @@ export function HistoricalReports() {
                       variant="body2"
                       sx={{ fontStyle: 'italic', color: 'text.secondary', mb: 2 }}
                     >
-                      {report.summary}
+                      {cleanMarkdownLinks(report.summary)}
                     </Typography>
                   )}
                   {report.items.slice(0, 5).map((item) => (

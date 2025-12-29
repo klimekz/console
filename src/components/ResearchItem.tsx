@@ -1,5 +1,6 @@
 import { Box, Typography, Chip, Link } from '@mui/material';
 import type { ResearchItem as ResearchItemType } from '../types';
+import { cleanMarkdownLinks } from '../utils/textUtils';
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
 
@@ -98,7 +99,7 @@ export function ResearchItem({ item, featured = false }: ResearchItemProps) {
           mb: 1,
         }}
       >
-        {item.summary}
+        {cleanMarkdownLinks(item.summary)}
       </Typography>
 
       {item.tags.length > 0 && (
