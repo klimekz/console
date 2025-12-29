@@ -13,7 +13,14 @@ const app = new Hono();
 // Middleware
 app.use('*', logger());
 app.use('*', cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin) => {
+    // Allow localhost and any Tailscale IP (100.x.x.x)
+    if (!origin) return 'http://localhost:5173';
+    if (origin.includes('localhost') || origin.match(/^https?:\/\/100\.\d+\.\d+\.\d+/)) {
+      return origin;
+    }
+    return 'http://localhost:5173';
+  },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));

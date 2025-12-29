@@ -1,6 +1,12 @@
 import type { ResearchConfig, ResearchReport, PaginatedResponse, TodayResponse, DayReportsResponse, AuditEntry, AuditStatus } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Use current hostname for API when accessed via network (e.g., Tailscale)
+const getApiBase = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  const host = window.location.hostname;
+  return `http://${host}:3001`;
+};
+const API_BASE = getApiBase();
 
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
