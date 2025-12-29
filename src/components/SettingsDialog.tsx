@@ -9,30 +9,93 @@ import {
   Box,
   Typography,
   Switch,
-  FormControlLabel,
   Chip,
-  IconButton,
   Divider,
   Alert,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  Collapse,
+  InputAdornment,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import type { ResearchConfig, CategoryType } from '../types';
 import { CATEGORY_LABELS } from '../types';
 import { configsApi, reportsApi } from '../api/client';
+
+const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
 
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
   onResearchTriggered?: () => void;
+}
+
+interface ChipInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  onAdd: () => void;
+  placeholder: string;
+  chips: string[];
+  onRemove: (chip: string) => void;
+  variant?: 'default' | 'success' | 'error';
+}
+
+function ChipInput({ value, onChange, onAdd, placeholder, chips, onRemove, variant = 'default' }: ChipInputProps) {
+  const chipColor = variant === 'success' ? '#e8f5e9' : variant === 'error' ? '#ffebee' : undefined;
+  const chipTextColor = variant === 'success' ? '#2e7d32' : variant === 'error' ? '#c62828' : undefined;
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: chips.length > 0 ? 1.5 : 0 }}>
+        {chips.map((chip) => (
+          <Chip
+            key={chip}
+            label={chip}
+            onDelete={() => onRemove(chip)}
+            size="small"
+            sx={{
+              fontFamily: SYSTEM_FONT,
+              fontSize: '0.75rem',
+              height: 24,
+              bgcolor: chipColor,
+              color: chipTextColor,
+              '& .MuiChip-deleteIcon': {
+                color: chipTextColor,
+                opacity: 0.7,
+                '&:hover': { opacity: 1 },
+              },
+            }}
+          />
+        ))}
+      </Box>
+      <TextField
+        size="small"
+        fullWidth
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onAdd();
+          }
+        }}
+        InputProps={{
+          endAdornment: value.trim() ? (
+            <InputAdornment position="end">
+              <KeyboardReturnIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+            </InputAdornment>
+          ) : null,
+          sx: { fontFamily: SYSTEM_FONT, fontSize: '0.875rem' },
+        }}
+      />
+    </Box>
+  );
 }
 
 export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsDialogProps) {
@@ -41,6 +104,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
   const [newTopic, setNewTopic] = useState<Record<string, string>>({});
   const [newPreferredSource, setNewPreferredSource] = useState<Record<string, string>>({});
   const [newBlockedSource, setNewBlockedSource] = useState<Record<string, string>>({});
+  const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (open) {
@@ -52,7 +116,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
     try {
       const data = await configsApi.getAll();
       setConfigs(data);
-    } catch (err) {
+    } catch {
       setError('Failed to load configurations');
     }
   };
@@ -61,7 +125,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
     try {
       const updated = await configsApi.update(config.id, { enabled: !config.enabled });
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
-    } catch (err) {
+    } catch {
       setError('Failed to update configuration');
     }
   };
@@ -70,7 +134,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
     try {
       const updated = await configsApi.update(config.id, { schedule });
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
-    } catch (err) {
+    } catch {
       setError('Failed to update schedule');
     }
   };
@@ -85,7 +149,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
       });
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
       setNewTopic((prev) => ({ ...prev, [config.id]: '' }));
-    } catch (err) {
+    } catch {
       setError('Failed to add topic');
     }
   };
@@ -96,7 +160,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
         topics: config.topics.filter((t) => t !== topicToRemove),
       });
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
-    } catch (err) {
+    } catch {
       setError('Failed to remove topic');
     }
   };
@@ -111,7 +175,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
       });
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
       setNewPreferredSource((prev) => ({ ...prev, [config.id]: '' }));
-    } catch (err) {
+    } catch {
       setError('Failed to add preferred source');
     }
   };
@@ -122,7 +186,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
         preferredSources: (config.preferredSources || []).filter((s) => s !== sourceToRemove),
       });
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
-    } catch (err) {
+    } catch {
       setError('Failed to remove preferred source');
     }
   };
@@ -137,7 +201,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
       });
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
       setNewBlockedSource((prev) => ({ ...prev, [config.id]: '' }));
-    } catch (err) {
+    } catch {
       setError('Failed to add blocked source');
     }
   };
@@ -148,7 +212,7 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
         blockedSources: (config.blockedSources || []).filter((s) => s !== sourceToRemove),
       });
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
-    } catch (err) {
+    } catch {
       setError('Failed to remove blocked source');
     }
   };
@@ -188,241 +252,234 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
     { value: '0 6 * * 1', label: 'Weekly on Monday' },
   ];
 
+  const toggleSources = (configId: string) => {
+    setExpandedSources((prev) => ({ ...prev, [configId]: !prev[configId] }));
+  };
+
+  const getSourceCount = (config: ResearchConfig) => {
+    return (config.preferredSources?.length || 0) + (config.blockedSources?.length || 0);
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontFamily: '"Playfair Display", serif' }}>
-        Research Configuration
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: { borderRadius: 2 },
+      }}
+    >
+      <DialogTitle
+        sx={{
+          fontFamily: SYSTEM_FONT,
+          fontWeight: 600,
+          fontSize: '1.1rem',
+          pb: 1,
+        }}
+      >
+        Research Settings
       </DialogTitle>
 
-      <DialogContent>
+      <DialogContent sx={{ pt: 1 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
-        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-          Configure your research topics and schedules. Each category will produce a daily report
-          with up to 15 items.
-        </Typography>
-
-        {configs.map((config) => {
+        {configs.map((config, index) => {
           const category = config.category as CategoryType;
+          const sourcesExpanded = expandedSources[config.id] || false;
+          const sourceCount = getSourceCount(config);
+
           return (
-            <Accordion key={config.id} defaultExpanded={config.enabled}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', pr: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={config.enabled}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleToggle(config);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    }
-                    label=""
-                    sx={{ m: 0 }}
+            <Box key={config.id}>
+              {index > 0 && <Divider sx={{ my: 3 }} />}
+
+              {/* Header row */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Switch
+                    checked={config.enabled}
+                    onChange={() => handleToggle(config)}
+                    size="small"
                   />
-                  <Typography sx={{ fontWeight: 600 }}>
+                  <Typography
+                    sx={{
+                      fontFamily: SYSTEM_FONT,
+                      fontWeight: 600,
+                      fontSize: '0.95rem',
+                      color: config.enabled ? 'text.primary' : 'text.disabled',
+                    }}
+                  >
                     {CATEGORY_LABELS[category] || config.name}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', ml: 'auto' }}>
-                    {config.topics.length} topics
-                  </Typography>
                 </Box>
-              </AccordionSummary>
+                <Button
+                  size="small"
+                  variant="text"
+                  startIcon={<PlayArrowIcon sx={{ fontSize: 16 }} />}
+                  onClick={() => handleRunNow(config.id)}
+                  sx={{
+                    fontFamily: SYSTEM_FONT,
+                    fontSize: '0.75rem',
+                    textTransform: 'none',
+                    color: 'text.secondary',
+                    '&:hover': { color: 'primary.main' },
+                  }}
+                >
+                  Run now
+                </Button>
+              </Box>
 
-              <AccordionDetails>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                  {config.description}
+              {/* Topics */}
+              <Box sx={{ mb: 2.5 }}>
+                <Typography
+                  sx={{
+                    fontFamily: SYSTEM_FONT,
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    color: 'text.secondary',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    mb: 1,
+                  }}
+                >
+                  Topics
                 </Typography>
+                <ChipInput
+                  value={newTopic[config.id] || ''}
+                  onChange={(v) => setNewTopic((prev) => ({ ...prev, [config.id]: v }))}
+                  onAdd={() => handleAddTopic(config)}
+                  placeholder="Add topic and press Enter"
+                  chips={config.topics}
+                  onRemove={(t) => handleRemoveTopic(config, t)}
+                />
+              </Box>
 
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Topics
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                    {config.topics.map((topic) => (
-                      <Chip
-                        key={topic}
-                        label={topic}
-                        onDelete={() => handleRemoveTopic(config, topic)}
-                        size="small"
-                      />
-                    ))}
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      size="small"
-                      placeholder="Add a topic..."
-                      value={newTopic[config.id] || ''}
-                      onChange={(e) =>
-                        setNewTopic((prev) => ({ ...prev, [config.id]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddTopic(config);
-                        }
-                      }}
-                      sx={{ flex: 1 }}
-                    />
-                    <IconButton
-                      onClick={() => handleAddTopic(config)}
-                      disabled={!newTopic[config.id]?.trim()}
-                      color="primary"
-                    >
-                      <AddIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-
-                {/* Preferred Sources */}
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'success.main' }}>
-                    Preferred Sources
-                  </Typography>
-                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1 }}>
-                    Domains to prioritize (e.g., arxiv.org, techcrunch.com)
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                    {(config.preferredSources || []).map((source) => (
-                      <Chip
-                        key={source}
-                        label={source}
-                        onDelete={() => handleRemovePreferredSource(config, source)}
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                      />
-                    ))}
-                    {(!config.preferredSources || config.preferredSources.length === 0) && (
-                      <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
-                        No preferred sources set
-                      </Typography>
-                    )}
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      size="small"
-                      placeholder="Add domain (e.g., arxiv.org)..."
-                      value={newPreferredSource[config.id] || ''}
-                      onChange={(e) =>
-                        setNewPreferredSource((prev) => ({ ...prev, [config.id]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddPreferredSource(config);
-                        }
-                      }}
-                      sx={{ flex: 1 }}
-                    />
-                    <IconButton
-                      onClick={() => handleAddPreferredSource(config)}
-                      disabled={!newPreferredSource[config.id]?.trim()}
-                      color="success"
-                    >
-                      <AddIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-
-                {/* Blocked Sources */}
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'error.main' }}>
-                    Blocked Sources
-                  </Typography>
-                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1 }}>
-                    Domains to exclude from results
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                    {(config.blockedSources || []).map((source) => (
-                      <Chip
-                        key={source}
-                        label={source}
-                        onDelete={() => handleRemoveBlockedSource(config, source)}
-                        size="small"
-                        color="error"
-                        variant="outlined"
-                      />
-                    ))}
-                    {(!config.blockedSources || config.blockedSources.length === 0) && (
-                      <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
-                        No blocked sources
-                      </Typography>
-                    )}
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      size="small"
-                      placeholder="Add domain to block..."
-                      value={newBlockedSource[config.id] || ''}
-                      onChange={(e) =>
-                        setNewBlockedSource((prev) => ({ ...prev, [config.id]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddBlockedSource(config);
-                        }
-                      }}
-                      sx={{ flex: 1 }}
-                    />
-                    <IconButton
-                      onClick={() => handleAddBlockedSource(config)}
-                      disabled={!newBlockedSource[config.id]?.trim()}
-                      color="error"
-                    >
-                      <AddIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  <FormControl size="small" sx={{ minWidth: 200 }}>
-                    <InputLabel>Schedule</InputLabel>
-                    <Select
-                      value={config.schedule}
-                      label="Schedule"
-                      onChange={(e) => handleScheduleChange(config, e.target.value)}
-                    >
-                      {scheduleOptions.map((opt) => (
-                        <MenuItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<PlayArrowIcon />}
-                    onClick={() => handleRunNow(config.id)}
+              {/* Schedule */}
+              <Box sx={{ mb: 2.5 }}>
+                <Typography
+                  sx={{
+                    fontFamily: SYSTEM_FONT,
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    color: 'text.secondary',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    mb: 1,
+                  }}
+                >
+                  Schedule
+                </Typography>
+                <FormControl size="small" fullWidth>
+                  <Select
+                    value={config.schedule}
+                    onChange={(e) => handleScheduleChange(config, e.target.value)}
+                    sx={{ fontFamily: SYSTEM_FONT, fontSize: '0.875rem' }}
                   >
-                    Run Now
-                  </Button>
-                </Box>
-              </AccordionDetails>
-            </Accordion>
+                    {scheduleOptions.map((opt) => (
+                      <MenuItem key={opt.value} value={opt.value} sx={{ fontFamily: SYSTEM_FONT, fontSize: '0.875rem' }}>
+                        {opt.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+
+              {/* Source Preferences (collapsible) */}
+              <Box>
+                <Button
+                  onClick={() => toggleSources(config.id)}
+                  size="small"
+                  sx={{
+                    fontFamily: SYSTEM_FONT,
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    color: 'text.secondary',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    p: 0,
+                    minWidth: 0,
+                    '&:hover': { bgcolor: 'transparent', color: 'text.primary' },
+                  }}
+                  endIcon={sourcesExpanded ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                >
+                  Source preferences {sourceCount > 0 && `(${sourceCount})`}
+                </Button>
+
+                <Collapse in={sourcesExpanded}>
+                  <Box sx={{ mt: 2, pl: 0 }}>
+                    {/* Preferred */}
+                    <Box sx={{ mb: 2 }}>
+                      <Typography
+                        sx={{
+                          fontFamily: SYSTEM_FONT,
+                          fontSize: '0.75rem',
+                          color: 'text.secondary',
+                          mb: 1,
+                        }}
+                      >
+                        Prioritize these domains
+                      </Typography>
+                      <ChipInput
+                        value={newPreferredSource[config.id] || ''}
+                        onChange={(v) => setNewPreferredSource((prev) => ({ ...prev, [config.id]: v }))}
+                        onAdd={() => handleAddPreferredSource(config)}
+                        placeholder="arxiv.org, techcrunch.com..."
+                        chips={config.preferredSources || []}
+                        onRemove={(s) => handleRemovePreferredSource(config, s)}
+                        variant="success"
+                      />
+                    </Box>
+
+                    {/* Blocked */}
+                    <Box>
+                      <Typography
+                        sx={{
+                          fontFamily: SYSTEM_FONT,
+                          fontSize: '0.75rem',
+                          color: 'text.secondary',
+                          mb: 1,
+                        }}
+                      >
+                        Exclude these domains
+                      </Typography>
+                      <ChipInput
+                        value={newBlockedSource[config.id] || ''}
+                        onChange={(v) => setNewBlockedSource((prev) => ({ ...prev, [config.id]: v }))}
+                        onAdd={() => handleAddBlockedSource(config)}
+                        placeholder="example.com..."
+                        chips={config.blockedSources || []}
+                        onRemove={(s) => handleRemoveBlockedSource(config, s)}
+                        variant="error"
+                      />
+                    </Box>
+                  </Box>
+                </Collapse>
+              </Box>
+            </Box>
           );
         })}
       </DialogContent>
 
       <Divider />
 
-      <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onClose}>Close</Button>
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button
+          onClick={onClose}
+          sx={{ fontFamily: SYSTEM_FONT, textTransform: 'none' }}
+        >
+          Close
+        </Button>
         <Button
           variant="contained"
           onClick={handleRunAll}
           startIcon={<PlayArrowIcon />}
+          sx={{ fontFamily: SYSTEM_FONT, textTransform: 'none' }}
         >
-          Run All Research
+          Run All
         </Button>
       </DialogActions>
     </Dialog>
