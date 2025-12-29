@@ -52,9 +52,10 @@ Topics to focus on: ${topicsStr}
 
 IMPORTANT REQUIREMENTS:
 - Only include content published within the last 48 hours (since ${today})
-- Return up to 15 items maximum
+- Return up to 5 items maximum (focus on quality over quantity)
 - Provide real, verifiable URLs
 - Sort by relevance (most relevant first)
+- Be concise - brief searches only
 
 Return your findings as JSON in this exact format:
 {
