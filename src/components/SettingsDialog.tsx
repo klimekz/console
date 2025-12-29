@@ -32,9 +32,10 @@ import { configsApi, reportsApi } from '../api/client';
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
+  onResearchTriggered?: () => void;
 }
 
-export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
+export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsDialogProps) {
   const [configs, setConfigs] = useState<ResearchConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [newTopic, setNewTopic] = useState<Record<string, string>>({});
@@ -100,27 +101,25 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
 
   const handleRunNow = async (configId: string) => {
     onClose();
+    onResearchTriggered?.();
     try {
       await reportsApi.runConfig(configId);
-      // Backend returns 202, research runs in background
-      // Frontend polls /api/audit/status automatically
     } catch (err) {
       console.error('Failed to start research:', err);
     }
   };
 
   const handleRunAll = async () => {
-    const enabledConfigs = configs.filter(c => c.enabled);
+    const enabledConfigs = configs.filter((c) => c.enabled);
     if (enabledConfigs.length === 0) {
       setError('No enabled configurations to run');
       return;
     }
 
     onClose();
+    onResearchTriggered?.();
     try {
       await reportsApi.runAll();
-      // Backend returns 202, research runs in background
-      // Frontend polls /api/audit/status automatically
     } catch (err) {
       console.error('Failed to start research:', err);
     }

@@ -9,11 +9,54 @@ export function createSchema(db: Database): void {
       prompt TEXT NOT NULL,
       category TEXT NOT NULL CHECK(category IN ('papers', 'news', 'markets')),
       topics TEXT NOT NULL, -- JSON array
+      preferred_sources TEXT, -- JSON array of preferred domains
+      blocked_sources TEXT, -- JSON array of blocked domains
       enabled INTEGER NOT NULL DEFAULT 1,
       schedule TEXT NOT NULL DEFAULT '0 6 * * *', -- daily at 6 AM
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
+  `);
+
+  // Sources reputation table for feedback-based curation
+  db.run(`
+    CREATE TABLE IF NOT EXISTS sources (
+      id TEXT PRIMARY KEY,
+      domain TEXT UNIQUE NOT NULL,
+      name TEXT,
+      category TEXT, -- 'academic', 'engineering_blog', 'news', 'social'
+      trust_score REAL DEFAULT 0.5, -- 0-1 scale
+      upvotes INTEGER DEFAULT 0,
+      downvotes INTEGER DEFAULT 0,
+      last_seen TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_sources_domain
+    ON sources(domain)
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_sources_trust
+    ON sources(trust_score DESC)
+  `);
+
+  // Source feedback from users
+  db.run(`
+    CREATE TABLE IF NOT EXISTS source_feedback (
+      id TEXT PRIMARY KEY,
+      source_domain TEXT NOT NULL,
+      item_id TEXT,
+      rating INTEGER NOT NULL, -- 1 (upvote) or -1 (downvote)
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_source_feedback_domain
+    ON source_feedback(source_domain)
   `);
 
   db.run(`
@@ -107,6 +150,17 @@ Present results in structured format with:
 - Tags for categorization`,
       category: 'papers',
       topics: JSON.stringify(['artificial intelligence', 'machine learning', 'computing', 'systems research', 'deep learning', 'LLMs']),
+      preferredSources: JSON.stringify([
+        'arxiv.org',
+        'openreview.net',
+        'paperswithcode.com',
+        'ai.googleblog.com',
+        'openai.com/blog',
+        'anthropic.com/news',
+        'research.google',
+        'engineering.fb.com',
+      ]),
+      blockedSources: JSON.stringify([]),
     },
     {
       id: 'news-tech',
@@ -128,6 +182,14 @@ Present results in structured format with:
 - Tags for categorization`,
       category: 'news',
       topics: JSON.stringify(['technology', 'startups', 'AI', 'software', 'hardware']),
+      preferredSources: JSON.stringify([
+        'techcrunch.com',
+        'theverge.com',
+        'arstechnica.com',
+        'wired.com',
+        'bloomberg.com/technology',
+      ]),
+      blockedSources: JSON.stringify([]),
     },
     {
       id: 'markets-portfolio',
@@ -149,16 +211,63 @@ Provide up to 15 key insights with:
 - Tags for categorization`,
       category: 'markets',
       topics: JSON.stringify(['stocks', 'ETFs', 'cryptocurrency', 'market analysis', 'economic indicators']),
+      preferredSources: JSON.stringify([
+        'bloomberg.com',
+        'reuters.com',
+        'wsj.com',
+        'ft.com',
+      ]),
+      blockedSources: JSON.stringify([]),
     },
   ];
 
   const stmt = db.prepare(`
     INSERT OR IGNORE INTO research_configs
-    (id, name, description, prompt, category, topics)
-    VALUES (?, ?, ?, ?, ?, ?)
+    (id, name, description, prompt, category, topics, preferred_sources, blocked_sources)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const config of defaultConfigs) {
-    stmt.run(config.id, config.name, config.description, config.prompt, config.category, config.topics);
+    stmt.run(
+      config.id,
+      config.name,
+      config.description,
+      config.prompt,
+      config.category,
+      config.topics,
+      config.preferredSources,
+      config.blockedSources
+    );
   }
+}
+
+// Migration for existing databases
+export function migrateSchema(db: Database): void {
+  // Add preferred_sources and blocked_sources columns if they don't exist
+  try {
+    db.run('ALTER TABLE research_configs ADD COLUMN preferred_sources TEXT');
+  } catch {
+    // Column already exists
+  }
+  try {
+    db.run('ALTER TABLE research_configs ADD COLUMN blocked_sources TEXT');
+  } catch {
+    // Column already exists
+  }
+
+  // Update existing papers config with preferred sources
+  db.run(`
+    UPDATE research_configs
+    SET preferred_sources = ?
+    WHERE id = 'papers-ai-computing' AND (preferred_sources IS NULL OR preferred_sources = '')
+  `, [JSON.stringify([
+    'arxiv.org',
+    'openreview.net',
+    'paperswithcode.com',
+    'ai.googleblog.com',
+    'openai.com/blog',
+    'anthropic.com/news',
+    'research.google',
+    'engineering.fb.com',
+  ])]);
 }

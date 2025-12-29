@@ -42,6 +42,19 @@ function buildResearchPrompt(config: ResearchConfig): string {
   const today = getTodayDate();
   const topicsStr = config.topics.join(', ');
 
+  // Build source preferences section
+  let sourcePreferences = '';
+  if (config.preferredSources && config.preferredSources.length > 0) {
+    sourcePreferences += `\nPREFERRED SOURCES (prioritize content from these domains):
+${config.preferredSources.map(s => `- ${s}`).join('\n')}
+`;
+  }
+  if (config.blockedSources && config.blockedSources.length > 0) {
+    sourcePreferences += `\nAVOID SOURCES (do not include content from these domains):
+${config.blockedSources.map(s => `- ${s}`).join('\n')}
+`;
+  }
+
   return `TODAY'S DATE: ${today}
 
 You are a research analyst. Find the TOP ${config.category === 'papers' ? 'research papers and technical articles' : config.category === 'news' ? 'tech news stories and announcements' : 'market news and financial updates'} published in the last 7 days.
@@ -49,13 +62,14 @@ You are a research analyst. Find the TOP ${config.category === 'papers' ? 'resea
 ${config.prompt}
 
 Topics to focus on: ${topicsStr}
-
+${sourcePreferences}
 IMPORTANT REQUIREMENTS:
 - Only include content published within the last 7 days (since ${today})
 - Return up to 5 items maximum (focus on quality over quantity)
 - Provide real, verifiable URLs
 - Sort by relevance and recency (most relevant/recent first)
 - Include notable social media discourse from key figures (e.g. Karpathy, Altman, etc.) if relevant
+- Do NOT include inline citation links in summaries - keep text clean
 
 Return your findings as JSON in this exact format:
 {

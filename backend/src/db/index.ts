@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import { createSchema, seedDefaultConfigs } from './schema';
+import { createSchema, seedDefaultConfigs, migrateSchema } from './schema';
 import type { ResearchConfig, ResearchReport, ResearchItem, PaginatedResponse } from '../types';
 import { randomUUID } from 'crypto';
 
@@ -19,6 +19,7 @@ export function getDb(): Database {
     db.run('PRAGMA journal_mode = WAL');
     db.run('PRAGMA foreign_keys = ON');
     createSchema(db);
+    migrateSchema(db);
     seedDefaultConfigs(db);
   }
   return db;
@@ -28,7 +29,9 @@ export function getDb(): Database {
 export function getAllConfigs(): ResearchConfig[] {
   const db = getDb();
   const rows = db.query(`
-    SELECT id, name, description, prompt, category, topics, enabled, schedule,
+    SELECT id, name, description, prompt, category, topics,
+           preferred_sources as preferredSources, blocked_sources as blockedSources,
+           enabled, schedule,
            created_at as createdAt, updated_at as updatedAt
     FROM research_configs
     ORDER BY category, name
@@ -37,6 +40,8 @@ export function getAllConfigs(): ResearchConfig[] {
   return rows.map(row => ({
     ...row,
     topics: JSON.parse(row.topics),
+    preferredSources: row.preferredSources ? JSON.parse(row.preferredSources) : [],
+    blockedSources: row.blockedSources ? JSON.parse(row.blockedSources) : [],
     enabled: Boolean(row.enabled),
   }));
 }
@@ -44,7 +49,9 @@ export function getAllConfigs(): ResearchConfig[] {
 export function getConfigById(id: string): ResearchConfig | null {
   const db = getDb();
   const row = db.query(`
-    SELECT id, name, description, prompt, category, topics, enabled, schedule,
+    SELECT id, name, description, prompt, category, topics,
+           preferred_sources as preferredSources, blocked_sources as blockedSources,
+           enabled, schedule,
            created_at as createdAt, updated_at as updatedAt
     FROM research_configs WHERE id = ?
   `).get(id) as any;
@@ -54,6 +61,8 @@ export function getConfigById(id: string): ResearchConfig | null {
   return {
     ...row,
     topics: JSON.parse(row.topics),
+    preferredSources: row.preferredSources ? JSON.parse(row.preferredSources) : [],
+    blockedSources: row.blockedSources ? JSON.parse(row.blockedSources) : [],
     enabled: Boolean(row.enabled),
   };
 }
@@ -64,11 +73,24 @@ export function createConfig(config: Omit<ResearchConfig, 'id' | 'createdAt' | '
   const now = new Date().toISOString();
 
   db.run(`
-    INSERT INTO research_configs (id, name, description, prompt, category, topics, enabled, schedule, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [id, config.name, config.description, config.prompt, config.category, JSON.stringify(config.topics), config.enabled ? 1 : 0, config.schedule, now, now]);
+    INSERT INTO research_configs (id, name, description, prompt, category, topics, preferred_sources, blocked_sources, enabled, schedule, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    id,
+    config.name,
+    config.description,
+    config.prompt,
+    config.category,
+    JSON.stringify(config.topics),
+    JSON.stringify(config.preferredSources || []),
+    JSON.stringify(config.blockedSources || []),
+    config.enabled ? 1 : 0,
+    config.schedule,
+    now,
+    now,
+  ]);
 
-  return { ...config, id, createdAt: now, updatedAt: now };
+  return { ...config, id, createdAt: now, updatedAt: now, preferredSources: config.preferredSources || [], blockedSources: config.blockedSources || [] };
 }
 
 export function updateConfig(id: string, updates: Partial<ResearchConfig>): ResearchConfig | null {
@@ -81,9 +103,21 @@ export function updateConfig(id: string, updates: Partial<ResearchConfig>): Rese
   db.run(`
     UPDATE research_configs
     SET name = ?, description = ?, prompt = ?, category = ?, topics = ?,
-        enabled = ?, schedule = ?, updated_at = ?
+        preferred_sources = ?, blocked_sources = ?, enabled = ?, schedule = ?, updated_at = ?
     WHERE id = ?
-  `, [updated.name, updated.description, updated.prompt, updated.category, JSON.stringify(updated.topics), updated.enabled ? 1 : 0, updated.schedule, updated.updatedAt, id]);
+  `, [
+    updated.name,
+    updated.description,
+    updated.prompt,
+    updated.category,
+    JSON.stringify(updated.topics),
+    JSON.stringify(updated.preferredSources || []),
+    JSON.stringify(updated.blockedSources || []),
+    updated.enabled ? 1 : 0,
+    updated.schedule,
+    updated.updatedAt,
+    id,
+  ]);
 
   return updated;
 }

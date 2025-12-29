@@ -16,6 +16,11 @@ import {
 import type { ResearchReport, TodayResponse, AuditEntry } from '../types';
 import { reportsApi, auditApi } from '../api/client';
 
+// Polling interval when research is running
+const POLL_INTERVAL_MS = 3000;
+// Grace period to poll after triggering research (before backend shows running status)
+const POLL_GRACE_PERIOD_MS = 30000;
+
 export function ReportPage() {
   const [todayData, setTodayData] = useState<TodayResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +34,10 @@ export function ReportPage() {
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
   const previousRunningRef = useRef<string[]>([]);
 
+  // Smart polling: only poll when research is running or recently triggered
+  const [isPolling, setIsPolling] = useState(false);
+  const pollGraceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const loadTodayReports = useCallback(async () => {
     try {
       const data = await reportsApi.getToday();
@@ -36,7 +45,7 @@ export function ReportPage() {
       setError(null);
     } catch (err) {
       console.error('Failed to load reports:', err);
-      setError('Failed to load research reports. Is the backend running?');
+      setError('Failed to load research reports');
     }
   }, []);
 
@@ -62,12 +71,33 @@ export function ReportPage() {
         (e) => e.status === 'failed' && !dismissedErrors.has(e.id)
       );
       setRecentFailed(failedNotDismissed);
+
+      // Stop polling if nothing is running and grace period expired
+      if (status.running.length === 0 && !pollGraceTimeoutRef.current) {
+        setIsPolling(false);
+      }
     } catch (err) {
       console.error('Failed to check audit status:', err);
     }
   }, [loadTodayReports, dismissedErrors]);
 
-  // Initial load
+  // Start polling with grace period (called when research is triggered)
+  const startPolling = useCallback(() => {
+    setIsPolling(true);
+
+    // Clear any existing grace timeout
+    if (pollGraceTimeoutRef.current) {
+      clearTimeout(pollGraceTimeoutRef.current);
+    }
+
+    // Set grace period - keep polling for 30s even if no running entries found
+    pollGraceTimeoutRef.current = setTimeout(() => {
+      pollGraceTimeoutRef.current = null;
+      // Will stop on next check if still no running entries
+    }, POLL_GRACE_PERIOD_MS);
+  }, []);
+
+  // Initial load - check status once
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -77,11 +107,29 @@ export function ReportPage() {
     fetchData();
   }, [loadTodayReports, checkAuditStatus]);
 
-  // Poll for status every 3 seconds
+  // Smart polling - only poll when isPolling is true
   useEffect(() => {
-    const interval = setInterval(checkAuditStatus, 3000);
+    if (!isPolling) return;
+
+    const interval = setInterval(checkAuditStatus, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [checkAuditStatus]);
+  }, [isPolling, checkAuditStatus]);
+
+  // Start polling if there are running entries on initial load
+  useEffect(() => {
+    if (runningEntries.length > 0 && !isPolling) {
+      setIsPolling(true);
+    }
+  }, [runningEntries.length, isPolling]);
+
+  // Cleanup grace timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (pollGraceTimeoutRef.current) {
+        clearTimeout(pollGraceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -198,6 +246,7 @@ export function ReportPage() {
       <SettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        onResearchTriggered={startPolling}
       />
     </>
   );

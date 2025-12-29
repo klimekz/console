@@ -5,6 +5,8 @@ export interface ResearchConfig {
   prompt: string;
   category: 'papers' | 'news' | 'markets';
   topics: string[];
+  preferredSources: string[]; // Domains to prioritize (e.g., arxiv.org)
+  blockedSources: string[]; // Domains to avoid
   enabled: boolean;
   schedule: string; // cron expression
   createdAt: string;
