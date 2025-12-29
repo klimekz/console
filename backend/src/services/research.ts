@@ -126,6 +126,7 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
 
       // Use the Responses API with deep research model and web search tool
       // background: true allows long-running tasks without connection timeout issues
+      // effort: 'low' reduces token usage to stay within Tier 1 rate limits
       const initialResponse = await (openai as any).responses.create({
         model: DEEP_RESEARCH_MODEL,
         input: [
@@ -135,7 +136,8 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
           },
         ],
         tools: [{ type: 'web_search_preview' }],
-        background: true, // Run in background mode for long tasks
+        background: true,
+        reasoning: { effort: 'low' },
       });
 
       console.log(`Deep research started, response ID: ${initialResponse.id}, status: ${initialResponse.status}`);
