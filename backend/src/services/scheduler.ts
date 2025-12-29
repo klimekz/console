@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import * as db from '../db';
-import { executeResearchConfig } from './research';
+import { enqueueConfig, enqueueConfigs } from './queue';
 
 interface ScheduledTask {
   configId: string;
@@ -33,13 +33,9 @@ export function scheduleConfig(configId: string, cronExpression: string): boolea
   // Stop existing task if any
   stopConfig(configId);
 
-  const task = cron.schedule(cronExpression, async () => {
-    console.log(`Running scheduled research for config: ${configId}`);
-    try {
-      await executeResearchConfig(configId);
-    } catch (error) {
-      console.error(`Scheduled research failed for ${configId}:`, error);
-    }
+  const task = cron.schedule(cronExpression, () => {
+    console.log(`Scheduled research triggered for config: ${configId}`);
+    enqueueConfig(configId);
   });
 
   scheduledTasks.set(configId, { configId, task });
@@ -78,14 +74,12 @@ export function stopAllSchedules(): void {
   scheduledTasks.clear();
 }
 
-// Run research immediately for testing
-export async function runNow(configId?: string): Promise<void> {
+// Run research immediately (via queue)
+export function runNow(configId?: string): void {
   if (configId) {
-    await executeResearchConfig(configId);
+    enqueueConfig(configId);
   } else {
     const configs = db.getAllConfigs().filter(c => c.enabled);
-    for (const config of configs) {
-      await executeResearchConfig(config.id);
-    }
+    enqueueConfigs(configs.map(c => c.id));
   }
 }

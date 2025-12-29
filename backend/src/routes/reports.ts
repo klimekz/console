@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import * as db from '../db';
-import { executeResearchConfig, executeAllEnabledConfigs } from '../services/research';
+import { enqueueConfig, enqueueConfigs, getQueueStatus } from '../services/queue';
 
 const reports = new Hono();
 
@@ -61,7 +61,12 @@ reports.get('/:id', (c) => {
   return c.json(report);
 });
 
-// Trigger research run for a specific config (async - returns immediately)
+// Get queue status
+reports.get('/queue', (c) => {
+  return c.json(getQueueStatus());
+});
+
+// Trigger research run for a specific config (queued - only one runs at a time)
 reports.post('/run/:configId', (c) => {
   const configId = c.req.param('configId');
   const config = db.getConfigById(configId);
@@ -70,20 +75,23 @@ reports.post('/run/:configId', (c) => {
     return c.json({ error: 'Config not found' }, 404);
   }
 
-  // Fire and forget - run in background
-  executeResearchConfig(configId).catch((error) => {
-    console.error('Research run failed:', error);
-  });
+  const result = enqueueConfig(configId);
 
   return c.json({
-    started: true,
+    queued: true,
+    position: result.position,
+    alreadyQueued: result.alreadyQueued,
     configId,
     configName: config.name,
-    message: 'Research started. Poll /api/audit/status for progress.',
+    message: result.alreadyQueued
+      ? 'Already in queue'
+      : result.position === 1
+        ? 'Research started'
+        : `Queued at position ${result.position}`,
   }, 202);
 });
 
-// Trigger research run for all enabled configs (async - returns immediately)
+// Trigger research run for all enabled configs (queued sequentially)
 reports.post('/run-all', (c) => {
   const configs = db.getAllConfigs().filter((cfg) => cfg.enabled);
 
@@ -91,16 +99,14 @@ reports.post('/run-all', (c) => {
     return c.json({ error: 'No enabled configs' }, 400);
   }
 
-  // Fire and forget - run in background
-  executeAllEnabledConfigs().catch((error) => {
-    console.error('Research run-all failed:', error);
-  });
+  const result = enqueueConfigs(configs.map(cfg => cfg.id));
 
   return c.json({
-    started: true,
-    count: configs.length,
+    queued: true,
+    count: result.queued,
+    skipped: result.skipped,
     configs: configs.map((cfg) => ({ id: cfg.id, name: cfg.name })),
-    message: 'Research started. Poll /api/audit/status for progress.',
+    message: `Queued ${result.queued} configs${result.skipped > 0 ? ` (${result.skipped} already in queue)` : ''}`,
   }, 202);
 });
 
