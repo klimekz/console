@@ -270,7 +270,7 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
     errorMessage,
   });
 
-  console.error('Deep research failed after retries:', lastError);
+  console.error('Deep research failed after retries:', errorMessage);
   return { summary: 'Research failed: ' + errorMessage, items: [] };
 }
 
