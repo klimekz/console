@@ -4,6 +4,7 @@ import * as db from '../db';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  timeout: 10 * 60 * 1000, // 10 minutes - deep research takes a while
 });
 
 // Deep research model - uses web_search_preview tool
