@@ -50,7 +50,7 @@ export function DaySection({ day, onItemDelete }: DaySectionProps) {
       <Typography
         sx={{
           fontFamily: SYSTEM_FONT,
-          fontSize: '0.8rem',
+          fontSize: '0.9rem',
           fontWeight: 600,
           color: '#333',
           textTransform: 'uppercase',
