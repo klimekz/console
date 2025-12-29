@@ -15,7 +15,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import type { ResearchReport, PaginatedResponse } from '../types';
-import { CATEGORY_LABELS, CATEGORY_ICONS, type CategoryType } from '../types';
+import { CATEGORY_LABELS, type CategoryType } from '../types';
 import { reportsApi } from '../api/client';
 
 export function HistoricalReports() {
@@ -95,13 +95,12 @@ export function HistoricalReports() {
           mb: 2,
         }}
       >
-        📜 Archives
+        Archives
       </Typography>
       <Divider sx={{ mb: 3 }} />
 
       {reports.data.map((report) => {
         const category = report.category as CategoryType;
-        const icon = CATEGORY_ICONS[category] || '📋';
         const label = CATEGORY_LABELS[category] || report.configName;
         const isExpanded = expandedReports.has(report.id);
 
@@ -129,7 +128,6 @@ export function HistoricalReports() {
               >
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Typography variant="body2">{icon}</Typography>
                     <Typography
                       variant="subtitle1"
                       sx={{ fontWeight: 600, fontFamily: '"Playfair Display", serif' }}

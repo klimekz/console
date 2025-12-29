@@ -56,11 +56,6 @@ export const CATEGORY_LABELS: Record<CategoryType, string> = {
   markets: 'Markets',
 };
 
-export const CATEGORY_ICONS: Record<CategoryType, string> = {
-  papers: '📚',
-  news: '📰',
-  markets: '📈',
-};
 
 export interface AuditEntry {
   id: string;

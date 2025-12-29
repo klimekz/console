@@ -1,7 +1,7 @@
 import { Box, Typography, Divider, Grid } from '@mui/material';
 import type { ResearchReport } from '../types';
 import { ResearchItem } from './ResearchItem';
-import { CATEGORY_LABELS, CATEGORY_ICONS, type CategoryType } from '../types';
+import { CATEGORY_LABELS, type CategoryType } from '../types';
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
 
@@ -13,7 +13,6 @@ interface ResearchSectionProps {
 export function ResearchSection({ report, showSummary = true }: ResearchSectionProps) {
   const category = report.category as CategoryType;
   const label = CATEGORY_LABELS[category] || report.configName;
-  const icon = CATEGORY_ICONS[category] || '';
 
   const sortedItems = [...report.items].sort((a, b) => b.relevanceScore - a.relevanceScore);
   const featuredItem = sortedItems[0];
@@ -22,11 +21,6 @@ export function ResearchSection({ report, showSummary = true }: ResearchSectionP
   return (
     <Box sx={{ mb: 5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        {icon && (
-          <Typography component="span" sx={{ fontSize: '1rem' }}>
-            {icon}
-          </Typography>
-        )}
         <Typography
           sx={{
             fontFamily: SYSTEM_FONT,
