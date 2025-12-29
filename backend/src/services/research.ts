@@ -9,11 +9,26 @@ const openai = new OpenAI({
 // Deep research model - uses web_search_preview tool
 const DEEP_RESEARCH_MODEL = 'o4-mini-deep-research-2025-06-26';
 
+// Retry configuration for rate limits
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 60_000; // Start with 60 seconds for rate limits
+
 // Pricing (as of Dec 2025): $0.01 per web search call
 const WEB_SEARCH_COST_CENTS = 1;
 // Token pricing for o4-mini-deep-research (estimated, per 1M tokens)
 const INPUT_TOKEN_COST_PER_MILLION = 110; // $1.10 per 1M input tokens
 const OUTPUT_TOKEN_COST_PER_MILLION = 440; // $4.40 per 1M output tokens
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(error: unknown): boolean {
+  if (error instanceof Error) {
+    return error.message.includes('429') || error.message.includes('Rate limit');
+  }
+  return false;
+}
 
 function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
@@ -70,21 +85,29 @@ function calculateCost(inputTokens: number, outputTokens: number, webSearchCalls
 export async function runDeepResearch(config: ResearchConfig, auditId: string): Promise<DeepResearchResponse> {
   const prompt = buildResearchPrompt(config);
   const startTime = Date.now();
+  let lastError: Error | null = null;
 
-  try {
-    // Use the responses API with deep research model and web search tool
-    const response = await openai.responses.create({
-      model: DEEP_RESEARCH_MODEL,
-      input: [
-        {
-          role: 'user',
-          content: [{ type: 'input_text', text: prompt }],
-        },
-      ],
-      tools: [{ type: 'web_search_preview' }],
-    } as any); // Type assertion needed as SDK types may not be fully updated
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+        console.log(`Rate limit hit, waiting ${delayMs / 1000}s before retry ${attempt}/${MAX_RETRIES}...`);
+        await sleep(delayMs);
+      }
 
-    const runtimeMs = Date.now() - startTime;
+      // Use the responses API with deep research model and web search tool
+      const response = await openai.responses.create({
+        model: DEEP_RESEARCH_MODEL,
+        input: [
+          {
+            role: 'user',
+            content: [{ type: 'input_text', text: prompt }],
+          },
+        ],
+        tools: [{ type: 'web_search_preview' }],
+      } as any); // Type assertion needed as SDK types may not be fully updated
+
+      const runtimeMs = Date.now() - startTime;
 
     // Extract usage info
     const usage = (response as any).usage || {};
@@ -149,20 +172,32 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
     console.log(`Deep research completed in ${(runtimeMs / 1000).toFixed(1)}s - ${webSearchCalls} web searches, ${inputTokens}/${outputTokens} tokens, $${(estimatedCostCents / 100).toFixed(4)}`);
 
     return parsed;
-  } catch (error) {
-    const runtimeMs = Date.now() - startTime;
-    const errorMessage = (error as Error).message;
+    } catch (error) {
+      lastError = error as Error;
 
-    // Update audit entry with failure
-    db.updateAuditEntry(auditId, {
-      runtimeMs,
-      status: 'failed',
-      errorMessage,
-    });
+      // If it's a rate limit error and we have retries left, continue
+      if (isRateLimitError(error) && attempt < MAX_RETRIES) {
+        console.log(`Rate limit error on attempt ${attempt + 1}, will retry...`);
+        continue;
+      }
 
-    console.error('Deep research error:', error);
-    return { summary: 'Research failed: ' + errorMessage, items: [] };
+      // For non-rate-limit errors or exhausted retries, fail immediately
+      break;
+    }
   }
+
+  // All retries exhausted or non-retryable error
+  const runtimeMs = Date.now() - startTime;
+  const errorMessage = lastError?.message || 'Unknown error';
+
+  db.updateAuditEntry(auditId, {
+    runtimeMs,
+    status: 'failed',
+    errorMessage,
+  });
+
+  console.error('Deep research failed after retries:', lastError);
+  return { summary: 'Research failed: ' + errorMessage, items: [] };
 }
 
 export async function executeResearchConfig(configId: string): Promise<db.ResearchReport | null> {
