@@ -198,6 +198,9 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
         return { summary: 'No response from deep research', items: [] };
       }
 
+      // Log raw output for debugging
+      console.log('Raw output text (first 500 chars):', outputText.substring(0, 500));
+
       // Parse JSON from the response
       // Try to extract JSON from markdown code blocks if present
       let jsonStr = outputText;
@@ -206,7 +209,21 @@ export async function runDeepResearch(config: ResearchConfig, auditId: string): 
         jsonStr = jsonMatch[1].trim();
       }
 
-      const parsed = JSON.parse(jsonStr) as DeepResearchResponse;
+      let parsed: DeepResearchResponse;
+      try {
+        parsed = JSON.parse(jsonStr) as DeepResearchResponse;
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        console.error('Attempted to parse:', jsonStr.substring(0, 1000));
+        // Return empty result but don't fail
+        parsed = { summary: 'Failed to parse research output', items: [] };
+      }
+
+      // Validate parsed result
+      if (!parsed.items) {
+        console.warn('No items array in parsed result, raw:', JSON.stringify(parsed).substring(0, 500));
+        parsed.items = [];
+      }
 
       // Update audit entry with success metrics
       db.updateAuditEntry(auditId, {
