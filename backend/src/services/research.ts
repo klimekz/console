@@ -44,18 +44,18 @@ function buildResearchPrompt(config: ResearchConfig): string {
 
   return `TODAY'S DATE: ${today}
 
-You are a research analyst. Find the TOP ${config.category === 'papers' ? 'research papers and technical articles' : config.category === 'news' ? 'tech news stories and announcements' : 'market news and financial updates'} published in the last 48 hours.
+You are a research analyst. Find the TOP ${config.category === 'papers' ? 'research papers and technical articles' : config.category === 'news' ? 'tech news stories and announcements' : 'market news and financial updates'} published in the last 7 days.
 
 ${config.prompt}
 
 Topics to focus on: ${topicsStr}
 
 IMPORTANT REQUIREMENTS:
-- Only include content published within the last 48 hours (since ${today})
+- Only include content published within the last 7 days (since ${today})
 - Return up to 5 items maximum (focus on quality over quantity)
 - Provide real, verifiable URLs
-- Sort by relevance (most relevant first)
-- Be concise - brief searches only
+- Sort by relevance and recency (most relevant/recent first)
+- Include notable social media discourse from key figures (e.g. Karpathy, Altman, etc.) if relevant
 
 Return your findings as JSON in this exact format:
 {
