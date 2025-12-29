@@ -1,0 +1,19 @@
+{
+  "name": "console-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "db:init": "bun run src/db/init.ts"
+  },
+  "dependencies": {
+    "hono": "^4.7.0",
+    "openai": "^4.77.0",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node-cron": "^3.0.11",
+    "@types/bun": "latest"
+  }
+}

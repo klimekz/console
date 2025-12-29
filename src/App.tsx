@@ -1,27 +1,51 @@
-import { Box, Typography, Container } from '@mui/material'
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { LandingPage } from './pages/LandingPage';
+import { ReportPage } from './pages/ReportPage';
+
+const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
+
+const theme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#121212',
+    },
+    background: {
+      default: '#fff',
+      paper: '#fff',
+    },
+    text: {
+      primary: '#121212',
+      secondary: '#666',
+    },
+  },
+  typography: {
+    fontFamily: SYSTEM_FONT,
+  },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundColor: '#fff',
+        },
+      },
+    },
+  },
+});
 
 function App() {
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          textAlign: 'center'
-        }}
-      >
-        <Typography variant="h1" component="h1" gutterBottom>
-          Console
-        </Typography>
-        <Typography variant="h4" component="h2" color="text.secondary">
-          Zack's Console
-        </Typography>
-      </Box>
-    </Container>
-  )
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/report" element={<ReportPage />} />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
+  );
 }
 
-export default App
+export default App;
