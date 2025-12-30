@@ -17,6 +17,8 @@ import {
   FormControl,
   Collapse,
   InputAdornment,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
@@ -27,6 +29,88 @@ import { CATEGORY_LABELS } from '../types';
 import { configsApi, reportsApi } from '../api/client';
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif';
+
+const DAYS = [
+  { value: '0', label: 'Su' },
+  { value: '1', label: 'Mo' },
+  { value: '2', label: 'Tu' },
+  { value: '3', label: 'We' },
+  { value: '4', label: 'Th' },
+  { value: '5', label: 'Fr' },
+  { value: '6', label: 'Sa' },
+];
+
+// Generate time options in 5-minute intervals
+function generateTimeOptions(): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 5) {
+      const h = hour.toString().padStart(2, '0');
+      const m = minute.toString().padStart(2, '0');
+      const ampm = hour < 12 ? 'AM' : 'PM';
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      options.push({
+        value: `${m} ${hour} * * `, // partial cron (days added separately)
+        label: `${displayHour}:${m} ${ampm}`,
+      });
+    }
+  }
+  return options;
+}
+
+const TIME_OPTIONS = generateTimeOptions();
+
+// Parse cron expression to get time and days
+function parseCron(cron: string): { time: string; days: string[] } {
+  const parts = cron.split(' ');
+  if (parts.length < 5) {
+    return { time: '0 6 * * ', days: ['1', '2', '3', '4', '5'] }; // default
+  }
+
+  const [minute, hour, , , daysPart] = parts;
+  const time = `${minute} ${hour} * * `;
+
+  let days: string[];
+  if (daysPart === '*') {
+    days = ['0', '1', '2', '3', '4', '5', '6'];
+  } else if (daysPart.includes('-')) {
+    // Handle ranges like 1-5
+    const [start, end] = daysPart.split('-').map(Number);
+    days = [];
+    for (let i = start; i <= end; i++) {
+      days.push(i.toString());
+    }
+  } else {
+    days = daysPart.split(',');
+  }
+
+  return { time, days };
+}
+
+// Build cron expression from time and days
+function buildCron(time: string, days: string[]): string {
+  if (days.length === 0) {
+    days = ['1']; // default to Monday if nothing selected
+  }
+  if (days.length === 7) {
+    return time + '*';
+  }
+  // Sort days and join
+  const sortedDays = [...days].sort((a, b) => Number(a) - Number(b));
+  return time + sortedDays.join(',');
+}
+
+// Check if two schedules conflict (same time on overlapping days)
+function schedulesConflict(cron1: string, cron2: string): boolean {
+  const s1 = parseCron(cron1);
+  const s2 = parseCron(cron2);
+
+  // Different times = no conflict
+  if (s1.time !== s2.time) return false;
+
+  // Check for overlapping days
+  return s1.days.some(d => s2.days.includes(d));
+}
 
 interface SettingsDialogProps {
   open: boolean;
@@ -130,12 +214,34 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
   };
 
   const handleScheduleChange = async (config: ResearchConfig, schedule: string) => {
+    // Check for conflicts with other configs
+    const otherConfigs = configs.filter(c => c.id !== config.id && c.enabled);
+    const conflict = otherConfigs.find(c => schedulesConflict(schedule, c.schedule));
+
+    if (conflict) {
+      const conflictCategory = CATEGORY_LABELS[conflict.category as CategoryType] || conflict.name;
+      setError(`Schedule conflicts with ${conflictCategory}. Choose a different time.`);
+      return;
+    }
+
     try {
       const updated = await configsApi.update(config.id, { schedule });
       setConfigs((prev) => prev.map((c) => (c.id === config.id ? updated : c)));
     } catch {
       setError('Failed to update schedule');
     }
+  };
+
+  const handleTimeChange = (config: ResearchConfig, newTime: string) => {
+    const { days } = parseCron(config.schedule);
+    const newSchedule = buildCron(newTime, days);
+    handleScheduleChange(config, newSchedule);
+  };
+
+  const handleDaysChange = (config: ResearchConfig, newDays: string[]) => {
+    const { time } = parseCron(config.schedule);
+    const newSchedule = buildCron(time, newDays);
+    handleScheduleChange(config, newSchedule);
   };
 
   const handleAddTopic = async (config: ResearchConfig) => {
@@ -241,15 +347,6 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
       console.error('Failed to start research:', err);
     }
   };
-
-  const scheduleOptions = [
-    { value: '0 6 * * *', label: 'Daily at 6 AM' },
-    { value: '0 8 * * *', label: 'Daily at 8 AM' },
-    { value: '0 12 * * *', label: 'Daily at 12 PM' },
-    { value: '0 18 * * *', label: 'Daily at 6 PM' },
-    { value: '0 6 * * 1-5', label: 'Weekdays at 6 AM' },
-    { value: '0 6 * * 1', label: 'Weekly on Monday' },
-  ];
 
   const toggleSources = (configId: string) => {
     setExpandedSources((prev) => ({ ...prev, [configId]: !prev[configId] }));
@@ -372,19 +469,56 @@ export function SettingsDialog({ open, onClose, onResearchTriggered }: SettingsD
                 >
                   Schedule
                 </Typography>
-                <FormControl size="small" fullWidth>
+
+                {/* Time picker */}
+                <FormControl size="small" sx={{ mb: 1.5, minWidth: 120 }}>
                   <Select
-                    value={config.schedule}
-                    onChange={(e) => handleScheduleChange(config, e.target.value)}
+                    value={parseCron(config.schedule).time}
+                    onChange={(e) => handleTimeChange(config, e.target.value)}
                     sx={{ fontFamily: SYSTEM_FONT, fontSize: '0.875rem' }}
+                    MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
                   >
-                    {scheduleOptions.map((opt) => (
+                    {TIME_OPTIONS.map((opt) => (
                       <MenuItem key={opt.value} value={opt.value} sx={{ fontFamily: SYSTEM_FONT, fontSize: '0.875rem' }}>
                         {opt.label}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
+
+                {/* Day selector */}
+                <ToggleButtonGroup
+                  value={parseCron(config.schedule).days}
+                  onChange={(_, newDays) => {
+                    if (newDays && newDays.length > 0) {
+                      handleDaysChange(config, newDays);
+                    }
+                  }}
+                  size="small"
+                  sx={{ display: 'flex', flexWrap: 'wrap' }}
+                >
+                  {DAYS.map((day) => (
+                    <ToggleButton
+                      key={day.value}
+                      value={day.value}
+                      sx={{
+                        fontFamily: SYSTEM_FONT,
+                        fontSize: '0.7rem',
+                        px: 1,
+                        py: 0.5,
+                        minWidth: 36,
+                        textTransform: 'none',
+                        '&.Mui-selected': {
+                          bgcolor: 'primary.main',
+                          color: 'white',
+                          '&:hover': { bgcolor: 'primary.dark' },
+                        },
+                      }}
+                    >
+                      {day.label}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
               </Box>
 
               {/* Source Preferences (collapsible) */}

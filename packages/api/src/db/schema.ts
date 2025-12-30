@@ -129,6 +129,7 @@ export function createSchema(db: Database): void {
 }
 
 export function seedDefaultConfigs(db: Database): void {
+  // Schedules spaced 5 minutes apart to avoid conflicts
   const defaultConfigs = [
     {
       id: 'papers-ai-computing',
@@ -147,6 +148,7 @@ export function seedDefaultConfigs(db: Database): void {
         'research.google',
       ]),
       blockedSources: JSON.stringify([]),
+      schedule: '0 6 * * *', // 6:00 AM daily
     },
     {
       id: 'news-tech',
@@ -162,6 +164,7 @@ export function seedDefaultConfigs(db: Database): void {
         'x.com',
       ]),
       blockedSources: JSON.stringify([]),
+      schedule: '5 6 * * *', // 6:05 AM daily
     },
     {
       id: 'markets-tech',
@@ -177,6 +180,7 @@ export function seedDefaultConfigs(db: Database): void {
         'seekingalpha.com',
       ]),
       blockedSources: JSON.stringify([]),
+      schedule: '10 6 * * *', // 6:10 AM daily
     },
     {
       id: 'politics-tech',
@@ -193,13 +197,14 @@ export function seedDefaultConfigs(db: Database): void {
         'apnews.com',
       ]),
       blockedSources: JSON.stringify([]),
+      schedule: '15 6 * * *', // 6:15 AM daily
     },
   ];
 
   const stmt = db.prepare(`
     INSERT OR IGNORE INTO research_configs
-    (id, name, description, prompt, category, topics, preferred_sources, blocked_sources)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    (id, name, description, prompt, category, topics, preferred_sources, blocked_sources, schedule)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const config of defaultConfigs) {
@@ -211,7 +216,8 @@ export function seedDefaultConfigs(db: Database): void {
       config.category,
       config.topics,
       config.preferredSources,
-      config.blockedSources
+      config.blockedSources,
+      config.schedule
     );
   }
 }
