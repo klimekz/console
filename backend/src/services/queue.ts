@@ -9,6 +9,14 @@ interface QueueItem {
   addedAt: Date;
 }
 
+// Delay between jobs to let TPM (tokens per minute) limit reset
+// Deep research uses ~180K tokens, limit is 200K TPM, so wait 60s between jobs
+const INTER_JOB_DELAY_MS = 60_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 const queue: QueueItem[] = [];
 let isProcessing = false;
 let currentConfigId: string | null = null;
@@ -66,10 +74,18 @@ async function processQueue(): Promise<void> {
   }
 
   isProcessing = true;
+  let isFirstJob = true;
 
   while (queue.length > 0) {
     const item = queue.shift()!;
     currentConfigId = item.configId;
+
+    // Wait between jobs to let TPM limit reset (skip for first job)
+    if (!isFirstJob) {
+      console.log(`[Queue] Waiting ${INTER_JOB_DELAY_MS / 1000}s before next job to avoid rate limits...`);
+      await sleep(INTER_JOB_DELAY_MS);
+    }
+    isFirstJob = false;
 
     console.log(`[Queue] Processing config: ${item.configId} (${queue.length} remaining)`);
 
