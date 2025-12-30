@@ -3,7 +3,7 @@ export interface ResearchConfig {
   name: string;
   description: string;
   prompt: string;
-  category: 'papers' | 'news' | 'markets';
+  category: 'papers' | 'news' | 'markets' | 'politics';
   topics: string[];
   preferredSources: string[]; // Domains to prioritize (e.g., arxiv.org)
   blockedSources: string[]; // Domains to avoid

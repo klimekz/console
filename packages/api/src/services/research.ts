@@ -38,10 +38,7 @@ function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-function buildResearchPrompt(config: ResearchConfig): string {
-  const today = getTodayDate();
-  const topicsStr = config.topics.join(', ');
-
+function buildSourcePreferences(config: ResearchConfig): string {
   // Get high-trust sources from user feedback
   const highTrustSources = db.getHighTrustSources(0.6, 10);
 
@@ -52,41 +49,27 @@ function buildResearchPrompt(config: ResearchConfig): string {
     ...highTrustSources.filter(s => !configuredPreferred.includes(s)),
   ];
 
-  // Build source preferences section
   let sourcePreferences = '';
   if (allPreferredSources.length > 0) {
-    sourcePreferences += `\nPREFERRED SOURCES (prioritize content from these domains):
+    sourcePreferences += `\nPREFERRED SOURCES (prioritize content from these):
 ${allPreferredSources.map(s => `- ${s}`).join('\n')}
 `;
   }
   if (config.blockedSources && config.blockedSources.length > 0) {
-    sourcePreferences += `\nAVOID SOURCES (do not include content from these domains):
+    sourcePreferences += `\nAVOID SOURCES:
 ${config.blockedSources.map(s => `- ${s}`).join('\n')}
 `;
   }
+  return sourcePreferences;
+}
 
-  return `TODAY'S DATE: ${today}
-
-You are a research analyst. Find the TOP ${config.category === 'papers' ? 'research papers and technical articles' : config.category === 'news' ? 'tech news stories and announcements' : 'market news and financial updates'} published in the last 7 days.
-
-${config.prompt}
-
-Topics to focus on: ${topicsStr}
-${sourcePreferences}
-IMPORTANT REQUIREMENTS:
-- Only include content published within the last 7 days (since ${today})
-- Return up to 5 items maximum (focus on quality over quantity)
-- Provide real, verifiable URLs
-- Sort by relevance and recency (most relevant/recent first)
-- Include notable social media discourse from key figures (e.g. Karpathy, Altman, etc.) if relevant
-- Do NOT include inline citation links in summaries - keep text clean
-
-Return your findings as JSON in this exact format:
+function getJsonOutputFormat(): string {
+  return `Return your findings as JSON in this exact format:
 {
   "summary": "A brief 2-3 sentence overview of the key findings",
   "items": [
     {
-      "title": "Article/Paper Title",
+      "title": "Title",
       "source": "Source name (publication, website, author)",
       "url": "Full URL to the content",
       "summary": "2-3 sentence summary of this item",
@@ -102,6 +85,140 @@ Rules:
 - publishedAt must be in YYYY-MM-DD format
 - tags should be lowercase
 - Only return valid JSON`;
+}
+
+function buildPapersPrompt(config: ResearchConfig, today: string): string {
+  const sourcePreferences = buildSourcePreferences(config);
+
+  return `TODAY'S DATE: ${today}
+
+You are a technical research analyst. Find substantive AI/ML/computing RESEARCH published in the last 30 days.
+
+WHAT I WANT:
+- Actual research papers (arxiv, conference papers, journal articles)
+- Technical whitepapers from research labs (OpenAI, Anthropic, DeepMind, Meta AI, Google Research)
+- Deep technical blog posts that introduce new methods, architectures, or findings
+- Benchmark results and evaluations
+
+WHAT I DO NOT WANT:
+- Product announcements or launch news (no "Company X announces Y")
+- Press releases or marketing content
+- News articles ABOUT research (give me the actual paper, not coverage of it)
+- Social media posts or commentary
+- Shallow summaries or listicles
+
+Focus areas: ${config.topics.join(', ')}
+${sourcePreferences}
+${config.prompt}
+
+REQUIREMENTS:
+- Up to 5 items maximum, quality over quantity
+- Each item must be the PRIMARY SOURCE (the actual paper/whitepaper, not news about it)
+- Provide real, verifiable URLs (arxiv links, official blog posts, etc.)
+- Sort by significance of contribution, not recency
+
+${getJsonOutputFormat()}`;
+}
+
+function buildNewsPrompt(config: ResearchConfig, today: string): string {
+  const sourcePreferences = buildSourcePreferences(config);
+
+  return `TODAY'S DATE: ${today}
+
+You are a tech industry analyst. Find the most significant tech industry news from the last 7 days.
+
+WHAT I WANT:
+- AI lab announcements and developments (OpenAI, Anthropic, Google, Meta, xAI, etc.)
+- FAANG/big tech company news
+- Startup funding rounds, acquisitions, notable launches
+- Developer tools and platform news
+- Notable commentary from key figures (Karpathy, Altman, etc. on X/Twitter)
+
+Focus areas: ${config.topics.join(', ')}
+${sourcePreferences}
+${config.prompt}
+
+REQUIREMENTS:
+- Up to 5 items maximum
+- Only content from the last 7 days
+- Provide real, verifiable URLs
+- Sort by significance and relevance
+
+${getJsonOutputFormat()}`;
+}
+
+function buildMarketsPrompt(config: ResearchConfig, today: string): string {
+  const sourcePreferences = buildSourcePreferences(config);
+
+  return `TODAY'S DATE: ${today}
+
+You are a financial analyst focused on tech/growth equities. Find significant market news from the last 7 days.
+
+WHAT I WANT:
+- Mag 7 stock movements and news (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA)
+- S&P 500 tech sector movers
+- Semiconductor/hardware company news (AMD, INTC, AVGO, etc.)
+- Notable earnings reports and guidance
+- Analyst upgrades/downgrades on major tech names
+- Macro news affecting tech (rates, economic data)
+
+Focus areas: ${config.topics.join(', ')}
+${sourcePreferences}
+${config.prompt}
+
+REQUIREMENTS:
+- Up to 5 items maximum
+- Focus on actionable information, not noise
+- Provide real, verifiable URLs
+- Sort by market impact/significance
+
+${getJsonOutputFormat()}`;
+}
+
+function buildPoliticsPrompt(config: ResearchConfig, today: string): string {
+  const sourcePreferences = buildSourcePreferences(config);
+
+  return `TODAY'S DATE: ${today}
+
+You are a policy analyst covering US federal politics with a focus on tech implications.
+
+WHAT I WANT:
+- AI regulation and policy developments
+- Antitrust actions affecting tech companies
+- Congressional hearings/legislation related to tech
+- Executive orders or agency actions (FTC, DOJ, etc.)
+- Tech-related trade policy (chips, China, etc.)
+- Key appointments or personnel changes affecting tech policy
+
+Focus areas: ${config.topics.join(', ')}
+${sourcePreferences}
+${config.prompt}
+
+REQUIREMENTS:
+- Up to 5 items maximum
+- Only content from the last 7 days
+- Provide real, verifiable URLs
+- Focus on developments with actual tech industry implications
+- Sort by policy significance
+
+${getJsonOutputFormat()}`;
+}
+
+function buildResearchPrompt(config: ResearchConfig): string {
+  const today = getTodayDate();
+
+  switch (config.category) {
+    case 'papers':
+      return buildPapersPrompt(config, today);
+    case 'news':
+      return buildNewsPrompt(config, today);
+    case 'markets':
+      return buildMarketsPrompt(config, today);
+    case 'politics':
+      return buildPoliticsPrompt(config, today);
+    default:
+      return buildNewsPrompt(config, today);
+  }
 }
 
 function calculateCost(inputTokens: number, outputTokens: number, webSearchCalls: number): number {

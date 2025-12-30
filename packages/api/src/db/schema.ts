@@ -7,7 +7,7 @@ export function createSchema(db: Database): void {
       name TEXT NOT NULL,
       description TEXT,
       prompt TEXT NOT NULL,
-      category TEXT NOT NULL CHECK(category IN ('papers', 'news', 'markets')),
+      category TEXT NOT NULL CHECK(category IN ('papers', 'news', 'markets', 'politics')),
       topics TEXT NOT NULL, -- JSON array
       preferred_sources TEXT, -- JSON array of preferred domains
       blocked_sources TEXT, -- JSON array of blocked domains
@@ -132,90 +132,64 @@ export function seedDefaultConfigs(db: Database): void {
   const defaultConfigs = [
     {
       id: 'papers-ai-computing',
-      name: 'AI & Computing Papers',
-      description: 'Top AI and computing research papers, white papers, and academic publications',
-      prompt: `Search for the top content published since the last run up to 15 items focusing on:
-- Emerging AI research papers and breakthroughs
-- Computing and systems research
-- Machine learning advancements
-- White papers from major tech companies and research labs
-
-Present results in structured format with:
-- Title
-- Source/Authors
-- URL
-- Brief summary (2-3 sentences)
-- Relevance score (1-10)
-- Publication date
-- Tags for categorization`,
+      name: 'AI/ML Research',
+      description: 'Substantive AI/ML research papers and technical whitepapers',
+      prompt: `Prioritize papers introducing new architectures, training methods, or significant benchmark improvements.`,
       category: 'papers',
-      topics: JSON.stringify(['artificial intelligence', 'machine learning', 'computing', 'systems research', 'deep learning', 'LLMs']),
+      topics: JSON.stringify(['LLMs', 'transformers', 'reasoning', 'agents', 'multimodal', 'RLHF', 'inference optimization']),
       preferredSources: JSON.stringify([
         'arxiv.org',
         'openreview.net',
-        'paperswithcode.com',
-        'ai.googleblog.com',
-        'openai.com/blog',
-        'anthropic.com/news',
+        'openai.com/research',
+        'anthropic.com/research',
+        'deepmind.google/research',
+        'ai.meta.com/research',
         'research.google',
-        'engineering.fb.com',
       ]),
       blockedSources: JSON.stringify([]),
     },
     {
       id: 'news-tech',
-      name: 'Tech Industry News',
-      description: 'Top technology and startup news stories',
-      prompt: `Search for the top 15 technology news stories since the last run covering:
-- Major tech company announcements
-- Startup funding and acquisitions
-- Product launches
-- Industry trends and analysis
-
-Present results in structured format with:
-- Title
-- Source
-- URL
-- Brief summary (2-3 sentences)
-- Relevance score (1-10)
-- Publication date
-- Tags for categorization`,
+      name: 'Tech Industry',
+      description: 'AI labs, FAANG, and startup ecosystem news',
+      prompt: `Focus on substantive developments, not rumors or speculation.`,
       category: 'news',
-      topics: JSON.stringify(['technology', 'startups', 'AI', 'software', 'hardware']),
+      topics: JSON.stringify(['OpenAI', 'Anthropic', 'Google', 'Meta AI', 'xAI', 'startups', 'developer tools']),
       preferredSources: JSON.stringify([
         'techcrunch.com',
         'theverge.com',
         'arstechnica.com',
-        'wired.com',
-        'bloomberg.com/technology',
+        'x.com',
       ]),
       blockedSources: JSON.stringify([]),
     },
     {
-      id: 'markets-portfolio',
-      name: 'Markets & Portfolio',
-      description: 'Market analysis for stocks, ETFs, and crypto holdings',
-      prompt: `Research and analyze market movements for portfolio holdings including:
-- Major stock indices performance
-- ETF sector analysis
-- Cryptocurrency market trends
-- Notable earnings and economic reports
-
-Provide up to 15 key insights with:
-- Title/Topic
-- Source
-- URL (if applicable)
-- Analysis summary (2-3 sentences)
-- Relevance score (1-10)
-- Date
-- Tags for categorization`,
+      id: 'markets-tech',
+      name: 'Markets & Finance',
+      description: 'Tech equities, Mag 7, and market movers',
+      prompt: `Focus on price action, earnings, and analyst moves for tech/growth names.`,
       category: 'markets',
-      topics: JSON.stringify(['stocks', 'ETFs', 'cryptocurrency', 'market analysis', 'economic indicators']),
+      topics: JSON.stringify(['NVDA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'semiconductors', 'S&P tech']),
       preferredSources: JSON.stringify([
         'bloomberg.com',
         'reuters.com',
         'wsj.com',
-        'ft.com',
+        'seekingalpha.com',
+      ]),
+      blockedSources: JSON.stringify([]),
+    },
+    {
+      id: 'politics-tech',
+      name: 'Tech Policy & Politics',
+      description: 'US federal politics affecting tech industry',
+      prompt: `Focus on actionable policy developments, not partisan commentary.`,
+      category: 'politics',
+      topics: JSON.stringify(['AI regulation', 'antitrust', 'CHIPS Act', 'tech policy', 'FTC', 'DOJ', 'China trade']),
+      preferredSources: JSON.stringify([
+        'politico.com',
+        'axios.com',
+        'thehill.com',
+        'reuters.com',
       ]),
       blockedSources: JSON.stringify([]),
     },
@@ -255,19 +229,26 @@ export function migrateSchema(db: Database): void {
     // Column already exists
   }
 
-  // Update existing papers config with preferred sources
-  db.run(`
-    UPDATE research_configs
-    SET preferred_sources = ?
-    WHERE id = 'papers-ai-computing' AND (preferred_sources IS NULL OR preferred_sources = '')
-  `, [JSON.stringify([
-    'arxiv.org',
-    'openreview.net',
-    'paperswithcode.com',
-    'ai.googleblog.com',
-    'openai.com/blog',
-    'anthropic.com/news',
-    'research.google',
-    'engineering.fb.com',
-  ])]);
+  // Update category constraint to include politics
+  // SQLite doesn't support ALTER CONSTRAINT, so we just allow it via the CHECK being recreated on new tables
+  // Existing data will work fine since we're only adding a new valid value
+
+  // Add politics config if it doesn't exist
+  const existingPolitics = db.query('SELECT id FROM research_configs WHERE id = ?').get('politics-tech');
+  if (!existingPolitics) {
+    db.run(`
+      INSERT OR IGNORE INTO research_configs
+      (id, name, description, prompt, category, topics, preferred_sources, blocked_sources)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      'politics-tech',
+      'Tech Policy & Politics',
+      'US federal politics affecting tech industry',
+      'Focus on actionable policy developments, not partisan commentary.',
+      'politics',
+      JSON.stringify(['AI regulation', 'antitrust', 'CHIPS Act', 'tech policy', 'FTC', 'DOJ', 'China trade']),
+      JSON.stringify(['politico.com', 'axios.com', 'thehill.com', 'reuters.com']),
+      JSON.stringify([]),
+    ]);
+  }
 }

@@ -29,7 +29,7 @@ export function DaySection({ day, onItemDelete }: DaySectionProps) {
     {} as Record<string, ResearchReport>
   );
 
-  const categoryOrder = ['papers', 'news', 'markets'];
+  const categoryOrder = ['papers', 'news', 'markets', 'politics'];
   const orderedReports = categoryOrder
     .map((cat) => reportsByCategory[cat])
     .filter(Boolean);
