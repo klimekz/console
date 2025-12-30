@@ -180,15 +180,15 @@ function buildPoliticsPrompt(config: ResearchConfig, today: string): string {
 
   return `TODAY'S DATE: ${today}
 
-You are a policy analyst covering US federal politics with a focus on tech implications.
+You are a political analyst covering US federal politics.
 
 WHAT I WANT:
-- AI regulation and policy developments
-- Antitrust actions affecting tech companies
-- Congressional hearings/legislation related to tech
-- Executive orders or agency actions (FTC, DOJ, etc.)
-- Tech-related trade policy (chips, China, etc.)
-- Key appointments or personnel changes affecting tech policy
+- Major presidential actions and statements
+- Congressional legislation and key votes
+- Cabinet and agency developments
+- Supreme Court decisions and cases
+- Tech-relevant policy (AI regulation, antitrust, trade/chips)
+- Key appointments and personnel changes
 
 Focus areas: ${config.topics.join(', ')}
 ${sourcePreferences}
@@ -198,8 +198,8 @@ REQUIREMENTS:
 - Up to 5 items maximum
 - Only content from the last 7 days
 - Provide real, verifiable URLs
-- Focus on developments with actual tech industry implications
-- Sort by policy significance
+- Focus on substantive developments, not partisan spin
+- Sort by significance
 
 ${getJsonOutputFormat()}`;
 }

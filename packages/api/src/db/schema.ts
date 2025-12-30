@@ -180,16 +180,17 @@ export function seedDefaultConfigs(db: Database): void {
     },
     {
       id: 'politics-tech',
-      name: 'Tech Policy & Politics',
-      description: 'US federal politics affecting tech industry',
-      prompt: `Focus on actionable policy developments, not partisan commentary.`,
+      name: 'US Politics',
+      description: 'US presidency, Congress, and federal policy',
+      prompt: `Cover major federal developments with awareness of tech implications.`,
       category: 'politics',
-      topics: JSON.stringify(['AI regulation', 'antitrust', 'CHIPS Act', 'tech policy', 'FTC', 'DOJ', 'China trade']),
+      topics: JSON.stringify(['presidency', 'Congress', 'Supreme Court', 'AI regulation', 'antitrust', 'trade policy']),
       preferredSources: JSON.stringify([
         'politico.com',
         'axios.com',
         'thehill.com',
         'reuters.com',
+        'apnews.com',
       ]),
       blockedSources: JSON.stringify([]),
     },
@@ -242,12 +243,12 @@ export function migrateSchema(db: Database): void {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       'politics-tech',
-      'Tech Policy & Politics',
-      'US federal politics affecting tech industry',
-      'Focus on actionable policy developments, not partisan commentary.',
+      'US Politics',
+      'US presidency, Congress, and federal policy',
+      'Cover major federal developments with awareness of tech implications.',
       'politics',
-      JSON.stringify(['AI regulation', 'antitrust', 'CHIPS Act', 'tech policy', 'FTC', 'DOJ', 'China trade']),
-      JSON.stringify(['politico.com', 'axios.com', 'thehill.com', 'reuters.com']),
+      JSON.stringify(['presidency', 'Congress', 'Supreme Court', 'AI regulation', 'antitrust', 'trade policy']),
+      JSON.stringify(['politico.com', 'axios.com', 'thehill.com', 'reuters.com', 'apnews.com']),
       JSON.stringify([]),
     ]);
   }
