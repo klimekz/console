@@ -1,6 +1,6 @@
 import { Database } from 'bun:sqlite';
 import { createSchema, seedDefaultConfigs, migrateSchema } from './schema';
-import type { ResearchConfig, ResearchReport, ResearchItem, PaginatedResponse } from '../types';
+import type { ResearchConfig, ResearchReport, ResearchItem, PaginatedResponse, QueueItem } from '../types';
 import { randomUUID } from 'crypto';
 
 const DB_PATH = process.env.DB_PATH || './data/console.db';
@@ -651,4 +651,167 @@ export function getHighTrustSources(minScore: number = 0.6, limit: number = 10):
   `).all(minScore, limit) as { domain: string }[];
 
   return rows.map(r => r.domain);
+}
+
+// Queue Items
+function rowToQueueItem(row: any): QueueItem {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    url: row.url,
+    content: row.content,
+    filePath: row.filePath,
+    fileName: row.fileName,
+    fileType: row.fileType,
+    notes: row.notes,
+    tags: row.tags ? JSON.parse(row.tags) : [],
+    status: row.status,
+    position: row.position,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function getAllQueueItems(status?: string): QueueItem[] {
+  const db = getDb();
+  let query = `
+    SELECT id, type, title, url, content, file_path as filePath, file_name as fileName,
+           file_type as fileType, notes, tags, status, position,
+           created_at as createdAt, updated_at as updatedAt
+    FROM queue_items
+  `;
+  const params: any[] = [];
+
+  if (status) {
+    query += ' WHERE status = ?';
+    params.push(status);
+  }
+
+  query += ' ORDER BY position ASC, created_at DESC';
+
+  const rows = db.query(query).all(...params) as any[];
+  return rows.map(rowToQueueItem);
+}
+
+export function getQueueItemById(id: string): QueueItem | null {
+  const db = getDb();
+  const row = db.query(`
+    SELECT id, type, title, url, content, file_path as filePath, file_name as fileName,
+           file_type as fileType, notes, tags, status, position,
+           created_at as createdAt, updated_at as updatedAt
+    FROM queue_items WHERE id = ?
+  `).get(id) as any;
+
+  if (!row) return null;
+  return rowToQueueItem(row);
+}
+
+export function createQueueItem(item: {
+  type: 'link' | 'file' | 'note';
+  title?: string;
+  url?: string;
+  content?: string;
+  filePath?: string;
+  fileName?: string;
+  fileType?: string;
+  notes?: string;
+  tags?: string[];
+}): QueueItem {
+  const db = getDb();
+  const id = randomUUID();
+  const now = new Date().toISOString();
+
+  // Get the max position and add 1
+  const { maxPos } = db.query('SELECT COALESCE(MAX(position), 0) as maxPos FROM queue_items').get() as { maxPos: number };
+  const position = maxPos + 1;
+
+  db.run(`
+    INSERT INTO queue_items (id, type, title, url, content, file_path, file_name, file_type, notes, tags, position, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    id,
+    item.type,
+    item.title || null,
+    item.url || null,
+    item.content || null,
+    item.filePath || null,
+    item.fileName || null,
+    item.fileType || null,
+    item.notes || null,
+    JSON.stringify(item.tags || []),
+    position,
+    now,
+    now,
+  ]);
+
+  return getQueueItemById(id)!;
+}
+
+export function updateQueueItem(id: string, updates: Partial<{
+  title: string;
+  url: string;
+  content: string;
+  notes: string;
+  tags: string[];
+  status: 'pending' | 'reading' | 'done' | 'archived';
+  position: number;
+}>): QueueItem | null {
+  const db = getDb();
+  const existing = getQueueItemById(id);
+  if (!existing) return null;
+
+  const now = new Date().toISOString();
+  const setClauses: string[] = ['updated_at = ?'];
+  const params: any[] = [now];
+
+  if (updates.title !== undefined) {
+    setClauses.push('title = ?');
+    params.push(updates.title);
+  }
+  if (updates.url !== undefined) {
+    setClauses.push('url = ?');
+    params.push(updates.url);
+  }
+  if (updates.content !== undefined) {
+    setClauses.push('content = ?');
+    params.push(updates.content);
+  }
+  if (updates.notes !== undefined) {
+    setClauses.push('notes = ?');
+    params.push(updates.notes);
+  }
+  if (updates.tags !== undefined) {
+    setClauses.push('tags = ?');
+    params.push(JSON.stringify(updates.tags));
+  }
+  if (updates.status !== undefined) {
+    setClauses.push('status = ?');
+    params.push(updates.status);
+  }
+  if (updates.position !== undefined) {
+    setClauses.push('position = ?');
+    params.push(updates.position);
+  }
+
+  params.push(id);
+  db.run(`UPDATE queue_items SET ${setClauses.join(', ')} WHERE id = ?`, params);
+
+  return getQueueItemById(id);
+}
+
+export function deleteQueueItem(id: string): boolean {
+  const db = getDb();
+  const result = db.run('DELETE FROM queue_items WHERE id = ?', [id]);
+  return result.changes > 0;
+}
+
+export function reorderQueueItems(itemIds: string[]): void {
+  const db = getDb();
+  const stmt = db.prepare('UPDATE queue_items SET position = ?, updated_at = ? WHERE id = ?');
+  const now = new Date().toISOString();
+
+  for (let i = 0; i < itemIds.length; i++) {
+    stmt.run(i + 1, now, itemIds[i]);
+  }
 }

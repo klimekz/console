@@ -62,3 +62,20 @@ export interface DeepResearchResponse {
   }>;
   summary: string;
 }
+
+export interface QueueItem {
+  id: string;
+  type: 'link' | 'file' | 'note';
+  title: string | null;
+  url: string | null;
+  content: string | null;
+  filePath: string | null;
+  fileName: string | null;
+  fileType: string | null;
+  notes: string | null;
+  tags: string[];
+  status: 'pending' | 'reading' | 'done' | 'archived';
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}

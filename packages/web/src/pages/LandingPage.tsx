@@ -1,6 +1,7 @@
 import { Box, Typography, Grid } from '@mui/material';
 import { Link } from 'react-router-dom';
 import ArticleIcon from '@mui/icons-material/Article';
+import InboxIcon from '@mui/icons-material/Inbox';
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 
 const MONO = '"SF Mono", "Fira Code", monospace';
@@ -128,6 +129,14 @@ export function LandingPage() {
               description="Research & market intel"
               icon={<ArticleIcon sx={{ fontSize: 18 }} />}
               to="/report"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <ToolCard
+              title="Queue"
+              description="Reading list & resources"
+              icon={<InboxIcon sx={{ fontSize: 18 }} />}
+              to="/queue"
             />
           </Grid>
         </Grid>

@@ -126,6 +126,36 @@ export function createSchema(db: Database): void {
     CREATE INDEX IF NOT EXISTS idx_audit_created_at
     ON audit_log(created_at DESC)
   `);
+
+  // Queue items for reading list / resource inbox
+  db.run(`
+    CREATE TABLE IF NOT EXISTS queue_items (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL CHECK(type IN ('link', 'file', 'note')),
+      title TEXT,
+      url TEXT,
+      content TEXT,
+      file_path TEXT,
+      file_name TEXT,
+      file_type TEXT,
+      notes TEXT,
+      tags TEXT, -- JSON array
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'reading', 'done', 'archived')),
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_queue_status
+    ON queue_items(status)
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_queue_position
+    ON queue_items(position)
+  `);
 }
 
 export function seedDefaultConfigs(db: Database): void {

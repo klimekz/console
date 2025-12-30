@@ -1,4 +1,4 @@
-import type { ResearchConfig, ResearchReport, PaginatedResponse, TodayResponse, DayReportsResponse, AuditEntry, AuditStatus } from '../types';
+import type { ResearchConfig, ResearchReport, PaginatedResponse, TodayResponse, DayReportsResponse, AuditEntry, AuditStatus, QueueItem } from '../types';
 
 // Use current hostname for API when accessed via network (e.g., Tailscale)
 const getApiBase = () => {
@@ -119,4 +119,50 @@ export const sourcesApi = {
     fetchApi<Array<{ domain: string; name: string; trustScore: number; upvotes: number; downvotes: number }>>(
       `/api/sources${category ? `?category=${category}` : ''}`
     ),
+};
+
+// Queue API (reading list / resource inbox)
+export const queueApi = {
+  getAll: (status?: string) =>
+    fetchApi<QueueItem[]>(`/api/queue${status ? `?status=${status}` : ''}`),
+
+  getById: (id: string) => fetchApi<QueueItem>(`/api/queue/${id}`),
+
+  create: (item: {
+    type: 'link' | 'file' | 'note';
+    title?: string;
+    url?: string;
+    content?: string;
+    notes?: string;
+    tags?: string[];
+  }) =>
+    fetchApi<QueueItem>('/api/queue', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    }),
+
+  update: (id: string, updates: Partial<{
+    title: string;
+    url: string;
+    content: string;
+    notes: string;
+    tags: string[];
+    status: 'pending' | 'reading' | 'done' | 'archived';
+    position: number;
+  }>) =>
+    fetchApi<QueueItem>(`/api/queue/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    }),
+
+  delete: (id: string) =>
+    fetchApi<{ success: boolean }>(`/api/queue/${id}`, {
+      method: 'DELETE',
+    }),
+
+  reorder: (itemIds: string[]) =>
+    fetchApi<{ success: boolean }>('/api/queue/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ itemIds }),
+    }),
 };
