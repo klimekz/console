@@ -112,7 +112,7 @@ ${sourcePreferences}
 ${config.prompt}
 
 REQUIREMENTS:
-- Up to 5 items maximum, quality over quantity
+- Up to 10 items maximum, quality over quantity
 - Each item must be the PRIMARY SOURCE (the actual paper/whitepaper, not news about it)
 - Provide real, verifiable URLs (arxiv links, official blog posts, etc.)
 - Sort by significance of contribution, not recency
@@ -139,7 +139,7 @@ ${sourcePreferences}
 ${config.prompt}
 
 REQUIREMENTS:
-- Up to 5 items maximum
+- Up to 10 items maximum
 - Only content from the last 7 days
 - Provide real, verifiable URLs
 - Sort by significance and relevance
@@ -167,7 +167,7 @@ ${sourcePreferences}
 ${config.prompt}
 
 REQUIREMENTS:
-- Up to 5 items maximum
+- Up to 10 items maximum
 - Focus on actionable information, not noise
 - Provide real, verifiable URLs
 - Sort by market impact/significance
@@ -195,7 +195,7 @@ ${sourcePreferences}
 ${config.prompt}
 
 REQUIREMENTS:
-- Up to 5 items maximum
+- Up to 10 items maximum
 - Only content from the last 7 days
 - Provide real, verifiable URLs
 - Focus on substantive developments, not partisan spin
