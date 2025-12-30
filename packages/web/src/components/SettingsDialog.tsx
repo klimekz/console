@@ -64,11 +64,13 @@ const TIME_OPTIONS = generateTimeOptions();
 function parseCron(cron: string): { time: string; days: string[] } {
   const parts = cron.split(' ');
   if (parts.length < 5) {
-    return { time: '0 6 * * ', days: ['1', '2', '3', '4', '5'] }; // default
+    return { time: '00 6 * * ', days: ['1', '2', '3', '4', '5'] }; // default
   }
 
   const [minute, hour, , , daysPart] = parts;
-  const time = `${minute} ${hour} * * `;
+  // Pad minute to match TIME_OPTIONS format
+  const paddedMinute = minute.padStart(2, '0');
+  const time = `${paddedMinute} ${hour} * * `;
 
   let days: string[];
   if (daysPart === '*') {
